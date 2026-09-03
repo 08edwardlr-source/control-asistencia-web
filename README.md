@@ -2,9 +2,9 @@
 
 ## Nueva conexión Supabase
 
-Conectado al proyecto `wnizcvoisbcqbuccaqpk` mediante una clave publicable apta para frontend. Antes de usarlo, sigue `CONFIGURAR-SUPABASE.md`. La clave secreta no se incluye ni debe incluirse en el proyecto.
+Conectado al proyecto `control-asistencia-web` mediante una clave publicable apta para frontend.
 
-Código repartido desde `control-asistencia-redisenado (1).html` en la estructura solicitada.
+Código repartido desde `control-asistencia-redisenado (1).html`.
 
 ## Páginas
 - `index.html`: entrada → login.

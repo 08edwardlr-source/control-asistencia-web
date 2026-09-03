@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crear cuenta</title>
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+<section class="pantalla-login" id="pantalla-login" aria-label="Registro del control de asistencia">
+  <div class="login-caja">
+    <div class="login-logo">AS</div>
+    <h1 id="login-titulo">Crear cuenta</h1>
+    <p class="login-subtitulo" id="login-subtitulo">Registra un usuario para acceder a la aplicación</p>
+    <form class="login-panel" id="form-registro" autocomplete="on">
+      <div class="login-campo"><label for="registro-nombre">Nombre</label><input id="registro-nombre" name="name" type="text" autocomplete="name" maxlength="60" required></div>
+      <div class="login-campo"><label for="registro-usuario">Correo electrónico</label><input id="registro-usuario" name="email" type="email" autocomplete="username" maxlength="120" required></div>
+      <div class="login-campo"><label for="registro-almacen">Almacén solicitado</label><select id="registro-almacen" required><option value="">Cargando almacenes...</option></select></div>
+      <div class="login-campo"><label for="registro-clave">Contraseña</label><input id="registro-clave" name="new-password" type="password" autocomplete="new-password" minlength="6" required></div>
+      <div class="login-campo"><label for="registro-confirmar">Confirmar contraseña</label><input id="registro-confirmar" type="password" autocomplete="new-password" minlength="6" required></div>
+      <p class="login-error" id="registro-error" role="alert"></p>
+      <button class="login-boton" type="submit">CREAR CUENTA</button>
+      <p class="login-cambio">¿Ya tienes una cuenta? <a class="login-enlace" href="login.html">Inicia sesión</a></p>
+    </form>
+    <p class="login-ayuda">Acceso protegido y datos sincronizados con Supabase.</p>
+  </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
+<script src="../js/services/supabase.js"></script>
+<script src="../js/services/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => Auth.init());
+</script>
+</body>
+</html>

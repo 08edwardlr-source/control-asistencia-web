@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - Control de Asistencia</title>
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+
+
+<div class="app">
+
+  <!-- ============================= HEADER ============================= -->
+  <header class="header">
+    <div class="header-izquierda">
+      <button class="btn-menu" aria-label="Abrir menú">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="header-titulo">ASISTENCIA</span>
+    </div>
+    <div class="estado-sync" id="estado-sincronizacion" data-estado="local" aria-label="Estado de sincronización">LOCAL</div>
+  </header>
+
+  <!-- ============================= MENÚ LATERAL ============================= -->
+  <div class="menu-overlay" id="menu-overlay"></div>
+  <nav class="menu-lateral" id="menu-lateral">
+    <div class="menu-lateral-header">
+      <div class="avatar-mini">AS</div>
+      <div>
+        <div style="font-weight:800;font-size:14px;">Control de Asistencia</div>
+        <div id="menu-usuario-activo" style="font-size:12px;color:var(--gris-500);">Panel administrativo</div>
+        <div id="menu-almacen-activo" style="font-size:11px;color:var(--azul-500);font-weight:700;margin-top:2px;"></div>
+      </div>
+    </div>
+    <div class="menu-lateral-item activo" data-tab="asistencia">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Asistencia
+    </div>
+    <div class="menu-lateral-item" data-tab="historial">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Historial
+    </div>
+    <div class="menu-lateral-item" data-tab="programacion">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Programación
+    </div>
+    <div class="menu-lateral-item" data-tab="trabajadores">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Base Datos
+    </div>
+    <div class="menu-lateral-item" data-tab="reportes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Reportes
+    </div>
+    <div class="menu-lateral-item" data-tab="ajustes">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Ajustes
+    </div>
+    <div class="menu-lateral-item" data-tab="perfil">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      Perfil
+    </div>
+    <div class="menu-lateral-sesion">
+      <div class="menu-lateral-item" id="btn-cerrar-sesion-menu" role="button" tabindex="0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Cerrar sesión
+      </div>
+    </div>
+  </nav>
+
+  <!-- ============================= CONTENIDO ============================= -->
+  <main class="contenido">
+
+    <!-- ======================= VISTA: ASISTENCIA ======================= -->
+    <section class="vista activa" id="vista-asistencia">
+
+      <div class="tarjeta-reloj">
+        <div class="reloj-anillo">
+          <div class="reloj-circulo">
+            <svg class="reloj-svg" viewBox="0 0 100 100">
+              <!-- marcas de hora -->
+              <g>
+                <line class="reloj-tick mayor" x1="50" y1="8" x2="50" y2="16" transform="rotate(0 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(30 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(60 50 50)"/>
+                <line class="reloj-tick mayor" x1="50" y1="8" x2="50" y2="16" transform="rotate(90 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(120 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(150 50 50)"/>
+                <line class="reloj-tick mayor" x1="50" y1="8" x2="50" y2="16" transform="rotate(180 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(210 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(240 50 50)"/>
+                <line class="reloj-tick mayor" x1="50" y1="8" x2="50" y2="16" transform="rotate(270 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(300 50 50)"/>
+                <line class="reloj-tick" x1="50" y1="8" x2="50" y2="14" transform="rotate(330 50 50)"/>
+              </g>
+              <!-- manecillas -->
+              <line id="manecilla-hora" class="reloj-manecilla reloj-manecilla-hora" x1="50" y1="50" x2="50" y2="30"/>
+              <line id="manecilla-minuto" class="reloj-manecilla reloj-manecilla-minuto" x1="50" y1="50" x2="50" y2="20"/>
+              <line id="manecilla-segundo" class="reloj-manecilla reloj-manecilla-segundo" x1="50" y1="50" x2="50" y2="16"/>
+              <circle class="reloj-centro" cx="50" cy="50" r="3.2"/>
+            </svg>
+          </div>
+        </div>
+        <div class="reloj-etiqueta">HORA ACTUAL</div>
+        <div class="reloj-digital"><span class="reloj-hh">--</span>:<span class="reloj-mm">--</span>:<span class="reloj-ss">--</span></div>
+        <div class="reloj-fecha-linea"><span class="reloj-fecha">--/--/----</span> · <span class="reloj-dia">-</span></div>
+      </div>
+
+      <div class="seccion-titulo">SELECCIONAR TURNO</div>
+      <div class="grid-turnos" id="lista-turnos"></div>
+
+      <div id="panel-busqueda-trabajador" class="oculto">
+
+        <div class="seccion-titulo">BUSCAR TRABAJADOR</div>
+
+        <div class="selector-metodo">
+          <button type="button" class="metodo-btn" id="btn-metodo-qr">📷 ESCANEAR QR</button>
+          <button type="button" class="metodo-btn activo" id="btn-metodo-dni">🔎 BUSCAR POR DNI</button>
+        </div>
+
+        <!-- Escáner de cámara -->
+        <div id="panel-scanner" class="tarjeta oculto" style="text-align:center;">
+          <div class="video-wrapper">
+            <video id="video-qr" autoplay playsinline muted></video>
+            <div class="marco-escaneo"></div>
+          </div>
+          <p style="font-size:12px;color:var(--gris-500);margin:12px 0 14px;">Apunta la cámara al código QR del trabajador</p>
+          <input type="file" id="input-imagen-qr" accept="image/*" capture="environment" class="oculto">
+          <button type="button" class="btn btn-primario btn-full" id="btn-seleccionar-imagen-qr" style="margin-bottom:10px;">📷 SELECCIONAR FOTO DEL QR</button>
+          <button type="button" class="btn btn-secundario btn-full" id="btn-cancelar-scanner">Cancelar</button>
+          <canvas id="canvas-qr-oculto" class="oculto"></canvas>
+        </div>
+
+        <!-- Búsqueda por DNI -->
+        <div id="panel-busqueda">
+          <form class="form-buscar" id="form-buscar-dni">
+            <div class="campo-busqueda">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="input-dni-buscar" placeholder="Escribe el DNI para buscar..." inputmode="numeric" maxlength="15" autocomplete="off" aria-autocomplete="list" aria-controls="sugerencias-dni">
+            </div>
+          </form>
+
+          <div id="sugerencias-dni" class="sugerencias-dni oculto"></div>
+
+        </div>
+
+        <!-- Trabajador no encontrado -->
+        <div id="panel-no-encontrado" class="tarjeta panel-no-encontrado oculto">
+          <div class="icono-alerta">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <h3 id="titulo-no-encontrado">TRABAJADOR NO ENCONTRADO</h3>
+          <p>No existe ningún registro con <strong id="dni-no-encontrado"></strong></p>
+          <div class="acciones-form">
+            <button class="btn btn-secundario" id="btn-volver-buscar-2" onclick="Workers.volverABuscar()">Buscar otro</button>
+            <div id="contenedor-personal-nuevo-btn">
+              <button class="btn btn-primario" id="btn-ir-registro-nuevo">+ PERSONAL NUEVO</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ficha del trabajador + marcado -->
+        <div id="panel-ficha" class="tarjeta oculto">
+          <div class="ficha-header">
+            <div class="avatar-grande" id="ficha-avatar">--</div>
+            <div>
+              <div class="ficha-nombre" id="ficha-nombre">—</div>
+              <div class="ficha-dni" id="ficha-dni">DNI: —</div>
+              <span class="badge badge-verde" id="ficha-estado">ACTIVO</span>
+              <span class="badge badge-naranja" id="ficha-metodo" style="margin-left:6px;">🔎 DNI</span>
+            </div>
+          </div>
+
+          <div class="lista-datos">
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="fila-dato-etiqueta">Fecha de nacimiento</span>
+              <span class="fila-dato-valor" id="ficha-nacimiento">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span class="fila-dato-etiqueta">Edad</span>
+              <span class="fila-dato-valor" id="ficha-edad">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+              <span class="fila-dato-etiqueta">Cargo</span>
+              <span class="fila-dato-valor" id="ficha-cargo">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span class="fila-dato-etiqueta">Área</span>
+              <span class="fila-dato-valor" id="ficha-area">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span class="fila-dato-etiqueta">Fecha de ingreso</span>
+              <span class="fila-dato-valor" id="ficha-ingreso">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              <span class="fila-dato-etiqueta">Teléfono</span>
+              <span class="fila-dato-valor" id="ficha-telefono">—</span>
+            </div>
+            <div class="fila-dato">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="14" y2="21"/><line x1="21" y1="14" x2="21" y2="21"/><line x1="14" y1="17.5" x2="21" y2="17.5"/></svg>
+              <span class="fila-dato-etiqueta">Código QR</span>
+              <span class="fila-dato-valor" id="ficha-qrid">—</span>
+            </div>
+          </div>
+
+          <button class="btn btn-outline btn-full" id="btn-volver-buscar" style="margin-bottom:16px;">Buscar otro trabajador</button>
+
+          <div class="panel-marcado">
+            <div class="turno-chip">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span id="ficha-turno">Sin turno seleccionado</span>
+            </div>
+
+            <div class="bloque-registro-auto oculto" id="bloque-registro-auto">
+              <div class="bloque-registro-auto-icono" id="icono-registro-auto">✅</div>
+              <div class="bloque-registro-auto-titulo" id="titulo-registro-auto">REGISTRADO</div>
+              <div class="bloque-registro-auto-hora" id="hora-registro-auto">--:--:--</div>
+            </div>
+
+            <div class="bloque-jornada-completada oculto" id="bloque-jornada-completada">
+              <div class="titulo">✅ JORNADA COMPLETADA</div>
+              <div class="filas">
+                <div>Entrada<br><strong id="completado-entrada">—</strong></div>
+                <div>Salida<br><strong id="completado-salida">—</strong></div>
+                <div>Horas<br><strong id="completado-horas">—</strong></div>
+              </div>
+            </div>
+
+            <div class="bloque-trabajador-inactivo oculto" id="bloque-trabajador-inactivo">
+              ❌ TRABAJADOR INACTIVO<br>
+              <span style="font-weight:600;font-size:11.5px;">No puede registrar asistencia</span>
+            </div>
+
+            <div class="marcado-pie">
+              Hora actual: <strong><span class="reloj-hh">--</span>:<span class="reloj-mm">--</span></strong><br>
+              Fecha: <strong><span class="reloj-fecha">--/--/----</span></strong>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="seccion-titulo">REGISTROS DE HOY</div>
+      <div id="lista-registros-hoy"></div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
+        <button type="button" class="btn btn-outline btn-full btn-lg" id="btn-registrar-nuevo-directo">+ REGISTRAR NUEVO PERSONAL</button>
+        <button type="button" class="btn btn-primario btn-full btn-lg" id="btn-finalizar-turno">✅ FINALIZAR REGISTRO DE TURNO</button>
+      </div>
+
+    </section>
+
+    <!-- ======================= VISTA: PROGRAMACIÓN ======================= -->
+    <section class="vista" id="vista-programacion">
+      <h2 class="titulo-vista">PROGRAMACIÓN DIARIA</h2>
+      <p class="programacion-subtitulo">Registra la cantidad de trabajadores que debe asistir por turno.</p>
+      <div class="tarjeta programacion-panel">
+        <form id="form-programacion">
+          <div class="programacion-fecha-fila">
+            <div class="campo">
+              <label>Seleccionar semana</label>
+              <input type="week" id="programacion-semana" required>
+            </div>
+          </div>
+          <div class="programacion-dias-semana" id="programacion-dias-semana"></div>
+          <div class="programacion-fechas-elegidas" id="programacion-fechas-elegidas"></div>
+          <div class="programacion-resumen" id="programacion-turnos"></div>
+          <div class="programacion-resumen-bloque">
+            <div class="programacion-resumen-titulo">RESUMEN DE PROGRAMACIÓN</div>
+            <div class="programacion-kpis">
+              <div class="programacion-kpi"><span>Total programado</span><strong id="programacion-kpi-total">0</strong><small>trabajadores</small></div>
+              <div class="programacion-kpi"><span>Personal disponible</span><strong id="programacion-kpi-disponible">0</strong><small>trabajadores</small></div>
+              <div class="programacion-kpi"><span>Sin programar</span><strong id="programacion-kpi-sin">0</strong><small>trabajadores</small></div>
+              <div class="programacion-kpi"><span>Cumplimiento</span><strong id="programacion-kpi-cumplimiento">0%</strong><small>del personal</small></div>
+            </div>
+            <div class="programacion-progreso"><div class="programacion-progreso-barra" id="programacion-progreso-barra"></div></div>
+            <div class="programacion-progreso-texto" id="programacion-progreso-texto">0 / 0 trabajadores programados</div>
+            <div class="programacion-advertencia" id="programacion-advertencia">La cantidad programada supera el personal disponible.</div>
+            <div class="programacion-botones">
+              <button type="submit" class="btn btn-primario" id="btn-guardar-programacion">GUARDAR PROGRAMACIÓN</button>
+              <button type="button" class="btn btn-secundario" id="btn-limpiar-programacion">LIMPIAR</button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="tarjeta" style="margin-top:16px;">
+        <div class="ficha-nombre">PROGRAMACIONES GUARDADAS</div>
+        <div class="programacion-tabla-scroll">
+          <table class="programacion-tabla">
+            <thead><tr><th>Fecha</th><th>Turno 01<br><small>06:00 - 14:00</small></th><th>Turno 02<br><small>14:00 - 22:00</small></th><th>Turno 03<br><small id="programacion-horario-t03">22:00 - 05:00</small></th><th>Total<br><small>Programado</small></th><th>Acciones</th></tr></thead>
+            <tbody id="lista-programaciones"></tbody>
+          </table>
+        </div>
+        <p style="margin-top:14px;color:var(--gris-500);font-size:12px;">Las cantidades programadas se utilizarán para el control de asistencia diaria.</p>
+      </div>
+    </section>
+
+    <!-- ======================= VISTA: HISTORIAL ======================= -->
+    <section class="vista" id="vista-historial">
+      <h2 class="titulo-vista">HISTORIAL DE ASISTENCIAS</h2>
+
+      <div class="filtros-historial">
+        <div class="campo">
+          <label>Fecha inicial</label>
+          <input type="date" id="filtro-fecha-inicio">
+        </div>
+        <div class="campo">
+          <label>Fecha final</label>
+          <input type="date" id="filtro-fecha-fin">
+        </div>
+      </div>
+
+      <div class="qrmasivo-barra-seleccion" style="margin-bottom:10px;">
+        <label class="qrmasivo-check-todos oculto" id="label-seleccionar-todos-historial">
+          <input type="checkbox" id="check-seleccionar-todos-historial">
+          <span id="texto-seleccion-historial">Seleccionar visibles</span>
+        </label>
+        <button type="button" class="qrmasivo-link-limpiar" id="btn-modo-seleccion-historial">☑️ Seleccionar fechas y turnos</button>
+      </div>
+
+      <div class="historial-acciones-rapidas" aria-label="Acciones del historial">
+        <button type="button" class="historial-accion-icono accion-excel" id="btn-exportar-historial-excel" title="Exportar Excel" aria-label="Exportar Excel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 3v18M3 9h18M3 15h18"/></svg>
+        </button>
+        <button type="button" class="historial-accion-icono accion-pdf" id="btn-exportar-historial-pdf" title="Exportar PDF" aria-label="Exportar PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 15h8M8 18h5"/></svg>
+        </button>
+        <button type="button" class="historial-accion-icono accion-whatsapp" id="btn-compartir-whatsapp" title="Compartir por WhatsApp" aria-label="Compartir por WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-9 8.5 9.5 9.5 0 0 1-4-1l-5 2 2-5a9.5 9.5 0 0 1-1-4 8.38 8.38 0 0 1 8.5-9A8.5 8.5 0 0 1 21 11.5z"/><path d="M9 8.5c.7 2.4 2.1 3.8 4.5 4.5"/></svg>
+        </button>
+        <button type="button" class="historial-accion-icono accion-outlook" id="btn-enviar-outlook" title="Abrir Outlook" aria-label="Abrir Outlook">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg>
+        </button>
+      </div>
+
+      <div id="lista-historial"></div>
+    </section>
+
+    <!-- ======================= VISTA: TRABAJADORES ======================= -->
+    <section class="vista" id="vista-trabajadores">
+      <h2 class="titulo-vista">BASE DATOS</h2>
+
+      <div class="barra-busqueda-listado">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="input-buscar-listado" placeholder="Buscar trabajador">
+      </div>
+
+      <div class="chips-fila">
+        <button class="chip-filtro activo" data-estado="TODOS">TODOS</button>
+        <button class="chip-filtro" data-estado="ACTIVO">ACTIVOS</button>
+        <button class="chip-filtro" data-estado="INACTIVO">INACTIVOS</button>
+      </div>
+
+      <div class="qrmasivo-barra-seleccion">
+        <label class="qrmasivo-check-todos">
+          <input type="checkbox" id="check-seleccionar-todos">
+          Seleccionar visibles
+        </label>
+        <button type="button" class="qrmasivo-link-limpiar" id="btn-limpiar-seleccion">Limpiar selección</button>
+      </div>
+
+      <button class="btn btn-outline btn-full" id="btn-generar-carnets" style="margin-bottom:14px;">🪪 GENERAR CARNETS DE TODOS (PDF)</button>
+
+      <div style="font-size:12px;color:var(--gris-500);font-weight:700;margin-bottom:8px;" id="contador-trabajadores">40 Trabajadores</div>
+
+      <div id="lista-trabajadores"></div>
+
+      <button class="fab" id="fab-nuevo-trabajador" aria-label="Nuevo trabajador">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </section>
+
+    <!-- ======================= VISTA: REPORTES ======================= -->
+    <section class="vista" id="vista-reportes">
+      <div class="full-ancho">
+
+        <div class="dash-header">
+          <div>
+            <h2 class="titulo-vista" style="margin-bottom:2px;">DASHBOARD</h2>
+            <p class="dash-subtitulo">Resumen general de asistencia</p>
+          </div>
+          <div class="dash-header-reloj">
+            <span class="dash-en-vivo"><span class="punto-vivo"></span>EN VIVO</span>
+            <div class="dash-reloj-mini">
+              <span class="reloj-fecha">--/--/----</span> · <span class="reloj-hh">--</span>:<span class="reloj-mm">--</span>:<span class="reloj-ss">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-kpis">
+          <div class="tarjeta-kpi2 kpi-azul">
+            <div class="kpi2-icono">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </div>
+            <div class="kpi2-valor" id="kpi-programado">0</div>
+            <div class="kpi2-etiqueta">PERSONAL PROGRAMADO</div>
+            <div class="kpi2-sub" id="kpi-programado-sub">100% del total</div>
+          </div>
+          <div class="tarjeta-kpi2 kpi-verde">
+            <div class="kpi2-icono">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="kpi2-valor" id="kpi-presentes">0</div>
+            <div class="kpi2-etiqueta">PRESENTES</div>
+            <div class="kpi2-sub" id="kpi-presentes-sub">0% del total</div>
+          </div>
+          <div class="tarjeta-kpi2 kpi-cian">
+            <div class="kpi2-icono">%</div>
+            <div class="kpi2-valor" id="kpi-porcentaje">0%</div>
+            <div class="kpi2-etiqueta">% ASISTENCIA</div>
+            <div class="kpi2-sub">del total</div>
+          </div>
+          <div class="tarjeta-kpi2 kpi-azul">
+            <div class="kpi2-icono">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="kpi2-valor" id="kpi-horas">0:00 h</div>
+            <div class="kpi2-etiqueta">HORAS TRABAJADAS</div>
+            <div class="kpi2-sub">Total del día</div>
+          </div>
+          <div class="tarjeta-kpi2 kpi-naranja">
+            <div class="kpi2-icono">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L14.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 17h.01"/></svg>
+            </div>
+            <div class="kpi2-valor" id="kpi-incompletas">0</div>
+            <div class="kpi2-etiqueta">HORAS INCOMPLETAS</div>
+            <div class="kpi2-sub" id="kpi-incompletas-sub">0% del total</div>
+          </div>
+        </div>
+
+        <div class="dash-grid-charts">
+          <div class="tarjeta-grafico">
+            <div class="grafico-cabecera-filtro">
+              <h3>1. Asistencia por turno</h3>
+              <input type="date" class="grafico-filtro-fecha" id="fecha-grafico-asistencia" aria-label="Fecha de asistencia por turno">
+            </div>
+            <p class="sub" id="sub-asistencia-turno">Programados, presentes, ausentes y tardanzas por turno</p>
+            <div class="contenedor-chart-md"><canvas id="chart-asistencia-turno"></canvas></div>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <h3>2. Tendencia de asistencia (%)</h3>
+            <p class="sub" id="sub-tendencia">Evolución diaria del porcentaje de asistencia</p>
+            <div class="contenedor-chart-md"><canvas id="chart-tendencia"></canvas></div>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <h3>3. Puntualidad por turno (%)</h3>
+            <p class="sub" id="sub-puntualidad">Presentes que llegaron dentro del horario · Periodo seleccionado</p>
+            <div class="contenedor-chart-md"><canvas id="chart-puntualidad"></canvas></div>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <div class="grafico-cabecera-filtro">
+              <h3>4. Cumplimiento de jornada (horas)</h3>
+              <input type="date" class="grafico-filtro-fecha" id="fecha-grafico-cumplimiento" aria-label="Fecha de cumplimiento de jornada">
+            </div>
+            <p class="sub" id="sub-cumplimiento">Horas esperadas vs. horas trabajadas promedio</p>
+            <div class="contenedor-chart-md"><canvas id="chart-cumplimiento"></canvas></div>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <h3>5. Ausentismo (%)</h3>
+            <p class="sub">Últimas 5 semanas</p>
+            <div class="contenedor-chart-md"><canvas id="chart-ausentismo"></canvas></div>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <h3>6. Salidas anticipadas</h3>
+            <p class="sub" id="sub-salidas">Registros agrupados por minutos de salida anticipada</p>
+            <div class="dona-panel-profesional">
+              <div class="contenedor-dona-sm"><canvas id="chart-salidas-anticipadas"></canvas></div>
+              <div class="leyenda-turnos" id="leyenda-salidas-anticipadas"></div>
+            </div>
+            <div style="margin-top:14px;padding:14px;border:1px solid var(--gris-200);border-radius:var(--radio-sm);text-align:center;">
+              <div class="sub">Tiempo total perdido</div>
+              <div id="dash-tiempo-perdido" style="font-size:24px;font-weight:900;color:var(--azul);margin-top:4px;">0 h 00 min</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dash-grid-paneles">
+
+          <div class="tarjeta-grafico">
+            <h3>Método de registro</h3>
+            <p class="sub" id="sub-metodo-registro">Periodo seleccionado</p>
+            <div class="dona-panel-profesional">
+              <div class="contenedor-dona-sm"><canvas id="chart-metodo"></canvas></div>
+              <div class="leyenda-turnos" id="leyenda-metodo"></div>
+            </div>
+            <p class="sub" id="dash-total-registros" style="text-align:center;margin-top:8px;">Total registros: 0</p>
+          </div>
+
+          <div class="tarjeta-grafico">
+            <h3>Alertas de asistencia</h3>
+            <div id="dash-alertas"></div>
+          </div>
+
+        </div>
+
+        <div class="tarjeta-grafico">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <h3 style="margin:0;">Ranking de incidencias</h3>
+            <select id="dash-ranking-periodo" style="width:auto;padding:6px 10px;font-size:12px;border-radius:var(--radio-sm);border:1px solid var(--gris-200);">
+              <option value="hoy">Hoy</option>
+              <option value="7" selected>Últimos 7 días</option>
+              <option value="30">Últimos 30 días</option>
+              <option value="mes">Este mes</option>
+            </select>
+          </div>
+          <div class="dash-ranking-grid">
+            <div>
+              <div class="dash-ranking-titulo">MAYOR NÚMERO DE TARDANZAS</div>
+              <table class="tabla-ranking"><tbody id="ranking-tardanzas"></tbody></table>
+            </div>
+            <div>
+              <div class="dash-ranking-titulo">MAYOR AUSENTISMO</div>
+              <table class="tabla-ranking"><tbody id="ranking-ausencias"></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <div class="tarjeta-grafico">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px;">
+            <h3 style="margin:0;">Registro de asistencia en tiempo real <span class="dash-en-vivo" style="margin-left:6px;"><span class="punto-vivo"></span>EN VIVO</span></h3>
+            <button type="button" class="btn-volver" id="btn-refrescar-dashboard" title="Actualizar ahora">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            </button>
+          </div>
+          <div class="tabla-scroll">
+            <table class="tabla-reporte">
+              <thead>
+                <tr>
+                  <th>#</th><th>Trabajador</th><th>DNI</th><th>Turno</th><th>Entrada</th><th>Salida</th><th>Horas</th><th>Estado</th><th>Método</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-tiempo-real"></tbody>
+            </table>
+          </div>
+          <p class="sub" style="text-align:right;margin-top:10px;" id="dash-ultima-actualizacion">Última actualización: —</p>
+        </div>
+
+        <div class="fila-botones-exportar">
+          <button class="btn btn-excel" id="btn-exportar-excel">EXCEL</button>
+          <button class="btn btn-secundario" id="btn-imprimir">IMPRIMIR</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= VISTA: REPORTE DETALLADO ======================= -->
+    <section class="vista" id="vista-reporte-detallado">
+      <div class="encabezado-con-volver">
+        <button class="btn-volver" id="btn-volver-reportes">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        </button>
+        <h2 class="titulo-vista" style="margin:0;">REPORTE DETALLADO</h2>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:14px;">
+        <div class="campo">
+          <label>Fecha inicial</label>
+          <input type="date" id="filtro-fecha-inicio-reporte">
+        </div>
+        <div class="campo">
+          <label>Fecha final</label>
+          <input type="date" id="filtro-fecha-fin-reporte">
+        </div>
+        <div class="campo ancho-completo">
+          <label>Turno</label>
+          <select id="filtro-turno-reporte">
+            <option value="">Todos los turnos</option>
+            <option value="T01">Turno 01</option>
+            <option value="T02">Turno 02</option>
+            <option value="T03">Turno 03</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="tabla-scroll">
+        <table class="tabla-reporte">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Trabajador</th>
+              <th>Turno</th>
+              <th>Entrada</th>
+              <th>Salida</th>
+              <th>Horas</th>
+              <th>Estado entrada</th>
+              <th>Estado salida</th>
+              <th>Método</th>
+              <th>Supervisor entrada</th>
+              <th>Supervisor salida</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-reporte-detallado"></tbody>
+        </table>
+      </div>
+
+      <button class="btn btn-excel btn-full" id="btn-exportar-excel-detallado" style="margin-top:14px;">EXPORTAR EXCEL</button>
+    </section>
+
+    <!-- ======================= VISTA: AJUSTES ======================= -->
+    <section class="vista" id="vista-ajustes">
+      <h2 class="titulo-vista">AJUSTES</h2>
+
+      <div class="lista-ajustes">
+        <div class="item-ajuste" id="item-tema">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          Tema
+          <span class="flecha">›</span>
+        </div>
+        <div class="item-ajuste" id="item-idioma">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+          Idioma
+          <span class="flecha">›</span>
+        </div>
+        <div class="item-ajuste" id="item-horarios">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Horarios de trabajo
+          <span class="flecha">›</span>
+        </div>
+        <div class="item-ajuste peligro" id="item-borrar-informacion">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6m3 0V4h8v2M10 11v5M14 11v5"/></svg>
+          Borrar información
+          <span class="flecha">›</span>
+        </div>
+        <div class="item-ajuste" id="item-info">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          Información de la aplicación
+          <span class="flecha">›</span>
+        </div>
+        <div class="item-ajuste peligro" id="btn-cerrar-sesion">
+          <svg class="icono-item" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Cerrar sesión
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= VISTA: PERFIL DEL SUPERVISOR ======================= -->
+    <section class="vista" id="vista-perfil">
+      <h2 class="titulo-vista">PERFIL DEL SUPERVISOR</h2>
+      <div class="tarjeta">
+        <div class="ficha-header">
+          <div class="avatar-grande" id="perfil-supervisor-avatar">SP</div>
+          <div>
+            <div class="ficha-nombre" id="perfil-supervisor-resumen">Supervisor no configurado</div>
+            <div class="ficha-dni">Responsable de los registros de asistencia</div>
+          </div>
+        </div>
+        <form id="form-perfil-supervisor">
+          <div class="form-grid">
+            <div class="campo">
+              <label>Nombres</label>
+              <input type="text" name="nombres" required>
+            </div>
+            <div class="campo">
+              <label>Apellidos</label>
+              <input type="text" name="apellidos" required>
+            </div>
+            <div class="campo">
+              <label>Documento / DNI</label>
+              <input type="text" name="dni" inputmode="numeric" required>
+            </div>
+            <div class="campo">
+              <label>Cargo</label>
+              <input type="text" name="cargo" value="Supervisor" required>
+            </div>
+            <div class="campo ancho-completo">
+              <label>Área o sede</label>
+              <input type="text" name="area" placeholder="Ej. Producción">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primario btn-full">GUARDAR PERFIL</button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================= MODAL: PERSONAL NUEVO ============================= -->
+  <div class="modal-overlay" id="modal-nuevo-overlay"></div>
+  <div class="modal" id="modal-nuevo-trabajador">
+    <div class="modal-header">
+      <div class="ficha-nombre">Registrar nuevo personal</div>
+      <button class="modal-cerrar" id="btn-cerrar-nuevo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p style="font-size:12px;color:var(--gris-500);margin:-8px 0 14px;">Completa la información básica del trabajador.</p>
+    <form id="form-nuevo-trabajador">
+      <div class="form-grid">
+        <div class="campo ancho-completo">
+          <label>DNI</label>
+          <input type="text" name="dni" id="form-nuevo-dni" placeholder="Ingrese DNI" required>
+        </div>
+        <div class="campo">
+          <label>Nombres</label>
+          <input type="text" name="nombres" placeholder="Ingrese nombres" required>
+        </div>
+        <div class="campo">
+          <label>Apellidos</label>
+          <input type="text" name="apellidos" placeholder="Ingrese apellidos" required>
+        </div>
+        <div class="campo">
+          <label>Cargo</label>
+          <select name="cargo">
+            <option value="Operario">Operario</option>
+            <option value="Técnico">Técnico</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Almacenero">Almacenero</option>
+            <option value="Analista">Analista</option>
+            <option value="Chofer">Chofer</option>
+            <option value="Auxiliar">Auxiliar</option>
+            <option value="Terceros">Terceros</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Área</label>
+          <select name="area" required>
+            <option value="Almacén">Almacén</option>
+            <option value="Producción">Producción</option>
+            <option value="Logística">Logística</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+            <option value="Calidad">Calidad</option>
+            <option value="Administración">Administración</option>
+          </select>
+        </div>
+        <div class="campo ancho-completo">
+          <label>Estado</label>
+          <select name="estado" required>
+            <option value="ACTIVO">Activo</option>
+            <option value="INACTIVO">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <div class="acciones-form">
+        <button type="button" class="btn btn-secundario" id="btn-cancelar-registro">Cancelar</button>
+        <button type="button" class="btn btn-primario" id="btn-guardar-nuevo-trabajador">REGISTRAR TRABAJADOR</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ============================= MODAL: PERFIL DE TRABAJADOR ============================= -->
+  <div class="modal-overlay" id="modal-perfil-overlay"></div>
+  <div class="modal" id="modal-perfil">
+    <div class="modal-header">
+      <div class="ficha-header" style="margin-bottom:0;">
+        <div class="avatar-grande" id="perfil-avatar">--</div>
+        <div>
+          <div class="ficha-nombre" id="perfil-nombre">—</div>
+          <div class="ficha-dni" id="perfil-dni">DNI: —</div>
+        </div>
+      </div>
+      <button class="modal-cerrar" id="btn-cerrar-perfil">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="perfil-qr-linea">
+      <span>Código QR: <strong id="perfil-qr-id">—</strong></span>
+      <button type="button" class="btn btn-outline" id="btn-generar-qr-perfil">GENERAR QR</button>
+    </div>
+    <form id="form-editar-perfil">
+      <div class="form-grid">
+        <div class="campo">
+          <label>Nombres</label>
+          <input type="text" name="nombres" required>
+        </div>
+        <div class="campo">
+          <label>Apellidos</label>
+          <input type="text" name="apellidos" required>
+        </div>
+        <div class="campo">
+          <label>Cargo</label>
+          <select name="cargo">
+            <option value="Operario">Operario</option>
+            <option value="Técnico">Técnico</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Almacenero">Almacenero</option>
+            <option value="Analista">Analista</option>
+            <option value="Chofer">Chofer</option>
+            <option value="Auxiliar">Auxiliar</option>
+            <option value="Terceros">Terceros</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Área</label>
+          <select name="area">
+            <option value="Almacén">Almacén</option>
+            <option value="Producción">Producción</option>
+            <option value="Logística">Logística</option>
+            <option value="Mantenimiento">Mantenimiento</option>
+            <option value="Calidad">Calidad</option>
+            <option value="Administración">Administración</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>DNI</label>
+          <input type="text" id="perfil-dni-input" disabled>
+        </div>
+        <div class="campo">
+          <label>Estado</label>
+          <select name="estado">
+            <option value="ACTIVO">Activo</option>
+            <option value="INACTIVO">Inactivo</option>
+          </select>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primario btn-full">GUARDAR CAMBIOS</button>
+    </form>
+  </div>
+
+  <!-- ============================= MODAL: EDITAR REGISTRO ============================= -->
+  <div class="modal-overlay" id="modal-editar-registro-overlay"></div>
+  <div class="modal" id="modal-editar-registro">
+    <div class="modal-header">
+      <div class="ficha-nombre">Editar registro de asistencia</div>
+      <button class="modal-cerrar" id="btn-cerrar-editar-registro" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-editar-registro">
+      <div class="campo ancho-completo">
+        <label>Trabajador correcto</label>
+        <select name="dni" id="editar-registro-dni" required></select>
+      </div>
+      <div class="form-grid">
+        <div class="campo">
+          <label>Hora de entrada</label>
+          <input type="time" name="horaEntrada" id="editar-registro-entrada" step="1" required>
+        </div>
+        <div class="campo">
+          <label>Hora de salida</label>
+          <input type="time" name="horaSalida" id="editar-registro-salida" step="1">
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--gris-500);margin:0 0 14px;">La puntualidad, condición de salida y horas trabajadas se recalcularán automáticamente.</p>
+      <button type="submit" class="btn btn-primario btn-full">GUARDAR CAMBIOS</button>
+    </form>
+  </div>
+
+  <!-- ============================= MODAL: CONFIGURACIÓN DE TURNOS ============================= -->
+  <div class="modal-overlay" id="modal-turnos-overlay"></div>
+  <div class="modal" id="modal-turnos">
+    <div class="modal-header">
+      <div class="ficha-nombre">Configuración de turnos</div>
+      <button class="modal-cerrar" id="btn-cerrar-turnos">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <form id="form-turnos">
+      <div id="filas-turnos"></div>
+      <button type="submit" class="btn btn-primario btn-full">GUARDAR CAMBIOS</button>
+    </form>
+  </div>
+
+  <!-- ============================= MODAL: TEMA ============================= -->
+  <div class="modal-overlay" id="modal-tema-overlay"></div>
+  <div class="modal" id="modal-tema">
+    <div class="modal-header">
+      <div class="ficha-nombre">Tema de la aplicación</div>
+      <button class="modal-cerrar" id="btn-cerrar-tema">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p style="font-size:12px;color:var(--gris-500);margin:-8px 0 14px;">Elige el fondo de la aplicación. El cambio se aplica al instante y queda guardado.</p>
+    <div class="grid-temas" id="grid-temas"></div>
+  </div>
+
+  <!-- ============================= MODALES: AJUSTES AVANZADOS ============================= -->
+  <div class="modal-overlay" id="modal-idioma-overlay"></div>
+  <div class="modal" id="modal-idioma">
+    <div class="modal-header"><div class="ficha-nombre">Idioma de la aplicación</div><button class="modal-cerrar" data-cerrar-modal="idioma" type="button">×</button></div>
+    <div class="ajustes-grid-opciones">
+      <div class="ajustes-opcion"><label><input type="radio" name="idioma-app" value="es"> Español</label><small>Idioma predeterminado.</small></div>
+      <div class="ajustes-opcion"><label><input type="radio" name="idioma-app" value="en"> English</label><small>English interface.</small></div>
+      <div class="ajustes-opcion"><label><input type="radio" name="idioma-app" value="pt"> Português</label><small>Interface em português.</small></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal-borrar-overlay"></div>
+  <div class="modal" id="modal-borrar">
+    <div class="modal-header"><div class="ficha-nombre">Borrar información</div><button class="modal-cerrar" data-cerrar-modal="borrar" type="button">×</button></div>
+    <p style="font-size:12px;color:var(--gris-500);margin:-6px 0 14px;">Esta acción no se puede deshacer y requiere la contraseña del administrador.</p>
+    <form id="form-borrar-informacion">
+      <div class="campo"><label>Información que deseas eliminar</label><select id="borrar-tipo" required><option value="registros">Registros por rango de fechas</option><option value="trabajadores">Base de datos de trabajadores</option><option value="operacion">Todos los datos operativos</option></select></div>
+      <div id="borrar-rango" class="form-grid">
+        <div class="campo"><label>Fecha inicial</label><input type="date" id="borrar-fecha-inicio" required></div>
+        <div class="campo"><label>Fecha final</label><input type="date" id="borrar-fecha-fin" required></div>
+      </div>
+      <div class="campo"><label>Contraseña de administrador</label><input type="password" id="borrar-clave-admin" autocomplete="current-password" required></div>
+      <div class="campo"><label>Escribe BORRAR para confirmar</label><input type="text" id="borrar-confirmacion" autocomplete="off" required></div>
+      <button class="btn btn-peligro btn-full" type="submit">ELIMINAR INFORMACIÓN</button>
+    </form>
+  </div>
+
+  <div class="modal-overlay" id="modal-info-overlay"></div>
+  <div class="modal" id="modal-info">
+    <div class="modal-header"><div class="ficha-nombre">Cómo funciona la aplicación</div><button class="modal-cerrar" data-cerrar-modal="info" type="button">×</button></div>
+    <div class="guia-app">
+      <div class="guia-bloque"><h4>1. Programación diaria</h4><p>Selecciona una o varias fechas e indica cuántos trabajadores deben asistir en cada turno. Estas cantidades alimentan los indicadores de programados, asistencia y ausentismo.</p></div>
+      <div class="guia-bloque"><h4>2. Registro de asistencia</h4><p>Selecciona el turno y registra al trabajador mediante DNI o QR. La primera lectura guarda la entrada y la segunda guarda la salida. La app calcula puntualidad, tardanza, salida anticipada y horas trabajadas.</p></div>
+      <div class="guia-bloque"><h4>3. Turno nocturno</h4><p>El Turno 03 pertenece a la fecha en la que inicia, aunque la salida ocurra al día siguiente.</p></div>
+      <div class="guia-bloque"><h4>4. Finalizar turno e Historial</h4><p>Al finalizar el turno, sus registros pasan al Historial y la lista actual queda vacía. Desde Historial puedes filtrar fechas y exportar Excel o PDF.</p></div>
+      <div class="guia-bloque"><h4>5. Base de datos y carnets</h4><p>Administra nombre, DNI, cargo, área y estado. Cada trabajador tiene un QR único que puede imprimirse en su carnet.</p></div>
+      <div class="guia-bloque"><h4>6. Dashboard y Reportes</h4><p>Los gráficos utilizan la programación, asistencias y cierres almacenados para calcular sus indicadores.</p></div>
+      <div class="guia-bloque"><h4>7. Ajustes y seguridad</h4><p>Configura horarios, tema, idioma y perfil. Las funciones administrativas sensibles solicitan la contraseña de la cuenta.</p></div>
+    </div>
+  </div>
+
+  <!-- ============================= MODAL: QR INDIVIDUAL ============================= -->
+  <div class="modal-overlay" id="modal-qr-overlay"></div>
+  <div class="modal" id="modal-qr">
+    <div class="modal-header">
+      <div class="ficha-nombre">Código QR del trabajador</div>
+      <button class="modal-cerrar" id="btn-cerrar-qr">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <p id="qr-nombre" style="text-align:center;font-weight:800;font-size:15px;margin:0 0 4px;">—</p>
+    <p style="text-align:center;font-size:12px;color:var(--gris-500);margin:0 0 4px;">Identificador único (no contiene datos personales)</p>
+    <p id="qr-codigo-texto" style="text-align:center;">EMP-00000</p>
+    <div id="qr-contenedor-individual"></div>
+    <button type="button" class="btn btn-primario btn-full" id="btn-descargar-qr">DESCARGAR QR (PNG)</button>
+  </div>
+
+  <!-- ============================= TOASTS ============================= -->
+  <div id="toast-contenedor"></div>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
+<script src="../js/services/supabase.js"></script>
+<script src="../js/services/auth.js"></script>
+<script src="../js/services/users.js"></script>
+<script src="../js/components/navbar.js"></script>
+<script src="../js/components/footer.js"></script>
+<script src="../js/utils/validation.js"></script>
+<script src="../js/utils/helpers.js"></script>
+<script src="../js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar sesión</title>
+  <link rel="stylesheet" href="../css/variables.css">
+  <link rel="stylesheet" href="../css/main.css">
+  <link rel="stylesheet" href="../css/components.css">
+  <link rel="stylesheet" href="../css/responsive.css">
+</head>
+<body>
+<section class="pantalla-login" id="pantalla-login" aria-label="Acceso al control de asistencia">
+  <div class="login-caja">
+    <div class="login-logo">AS</div>
+    <h1 id="login-titulo">Iniciar sesión</h1>
+    <p class="login-subtitulo" id="login-subtitulo">Ingresa para administrar la asistencia</p>
+    <form class="login-panel" id="form-login" autocomplete="on">
+      <div class="login-campo"><label for="login-usuario">Correo electrónico</label><input id="login-usuario" name="email" type="email" autocomplete="username" required></div>
+      <div class="login-campo"><label for="login-clave">Contraseña</label><input id="login-clave" name="password" type="password" autocomplete="current-password" required></div>
+      <p class="login-error" id="login-error" role="alert"></p>
+      <script>if(new URLSearchParams(location.search).get("registro")==="ok")document.getElementById("login-error").textContent="Cuenta creada. Confirma tu correo y luego inicia sesión.";</script>
+      <button class="login-boton" type="submit">INGRESAR</button>
+      <p class="login-cambio">¿No tienes una cuenta? <a class="login-enlace" href="register.html">Regístrate</a></p>
+    </form>
+    <p class="login-ayuda">Acceso protegido y datos sincronizados con Supabase.</p>
+  </div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
+<script src="../js/services/supabase.js"></script>
+<script src="../js/services/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => Auth.init());
+</script>
+</body>
+</html>

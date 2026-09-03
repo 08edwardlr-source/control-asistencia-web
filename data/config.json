@@ -1,0 +1,8 @@
+{
+  "appName": "Control de Asistencia",
+  "language": "es",
+  "auth": "supabase",
+  "projectRef": "wnizcvoisbcqbuccaqpk",
+  "supabaseUrl": "https://wnizcvoisbcqbuccaqpk.supabase.co",
+  "note": "La aplicación usa únicamente la clave publicable. Nunca agregues una clave sb_secret_ al frontend."
+}

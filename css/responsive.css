@@ -22,6 +22,22 @@
 }
 @media(max-width:380px){.estado-sync{min-width:0;padding:6px 8px;font-size:0}.estado-sync::after{content:attr(aria-label);font-size:0}}
 @media (min-width: 900px) {
+  #vista-programacion.activa {
+  display: block;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+#vista-programacion .programacion-subtitulo {
+  margin-bottom: 18px;
+}
+
+#vista-programacion > .tarjeta {
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
   .nav-inferior { max-width: 1100px; }
 }
 @media(max-width:760px){.programacion-resumen{grid-template-columns:1fr}.programacion-kpis{grid-template-columns:1fr 1fr}.programacion-botones{grid-template-columns:1fr}#vista-programacion .programacion-panel{padding:16px}#vista-programacion .programacion-fecha-fila{align-items:stretch;flex-direction:column}#vista-programacion .programacion-fecha-fila .campo{width:100%}.programacion-dias-semana{grid-template-columns:repeat(4,minmax(0,1fr))}}

@@ -651,6 +651,14 @@
     <section class="vista" id="vista-perfil">
       <h2 class="titulo-vista">PERFIL DEL SUPERVISOR</h2>
       <div class="tarjeta">
+        <div
+          class="perfil-aviso-inicial"
+          id="perfil-aviso-inicial"
+          role="status">
+        <strong>Configura al supervisor responsable</strong>
+        <span>Antes de registrar la asistencia, completa estos datos para identificar correctamente quién supervisa cada marcación.
+        </span>
+        </div>
         <div class="ficha-header">
           <div class="avatar-grande" id="perfil-supervisor-avatar">SP</div>
           <div>
@@ -670,7 +678,14 @@
             </div>
             <div class="campo">
               <label>Documento / DNI</label>
-              <input type="text" name="dni" inputmode="numeric" required>
+              <input
+                    type="text"
+                    name="dni"
+                    inputmode="numeric"
+                    pattern="[0-9]{8}"
+                    maxlength="8"
+                    title="Ingresa un DNI de 8 dígitos"
+                    required>
             </div>
             <div class="campo">
               <label>Cargo</label>

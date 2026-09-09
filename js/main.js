@@ -3557,6 +3557,17 @@ const App = {
   historialSeleccionActiva: false,
   historialSeleccionados: new Set(),
   _inicializada: false,
+  _perfilSupervisorListo: false,
+
+  perfilSupervisorCompleto(perfil) {
+    return !!(
+      perfil &&
+      String(perfil.nombres || '').trim() &&
+      String(perfil.apellidos || '').trim() &&
+      /^\d{8}$/.test(String(perfil.dni || '').trim()) &&
+      String(perfil.cargo || '').trim()
+    );
+  },
 
   async init() {
     if (this._inicializada) return;
@@ -3577,12 +3588,30 @@ const App = {
 
     Attendance.iniciarReloj();
     await Attendance.renderizarTurnos();
-    await this.renderizarPerfilSupervisor();
 
+   const perfilSupervisor = await this.renderizarPerfilSupervisor();
+    this._perfilSupervisorListo =
+      this.perfilSupervisorCompleto(perfilSupervisor);
     await this.renderizarContadorGlobal();
-    const tabInicial = new URLSearchParams(location.search).get('tab');
-    const tabPermitida = ['asistencia','historial','programacion','trabajadores','reportes','ajustes','perfil'].includes(tabInicial) ? tabInicial : 'asistencia';
-    await this.cambiarPestana(tabPermitida);
+    const tabInicial =
+      new URLSearchParams(location.search).get('tab');
+    const pestanasPermitidas = [
+      'asistencia',
+      'historial',
+      'programacion',
+      'trabajadores',
+      'reportes',
+      'ajustes',
+      'perfil'
+    ];
+    const tabPermitida = pestanasPermitidas.includes(tabInicial)
+      ? tabInicial
+      : 'asistencia';
+    await this.cambiarPestana(
+      this._perfilSupervisorListo
+        ? tabPermitida
+        : 'perfil'
+    );
   },
 
   async renderizarContadorGlobal() {
@@ -3601,10 +3630,17 @@ const App = {
   },
 
   async cambiarPestana(nombre) {
+    if (!this._perfilSupervisorListo && nombre !== 'perfil') {
+    nombre = 'perfil';
+    UI.toast(
+      'Primero completa el perfil del supervisor responsable',
+      'alerta'
+    );
+    }
+
     if (Auth.usuarioActual && !Auth.puedeVer(nombre)) {
       UI.toast('No tienes permiso para visualizar esta pestaña', 'alerta');
-      return;
-    }
+      return;}
     UI.cerrarTodosLosModales();
     if (this.pestanaActual === 'asistencia' && nombre !== 'asistencia' && typeof Scanner !== 'undefined') {
       Scanner.cerrar();
@@ -3615,10 +3651,8 @@ const App = {
     }
 
     this.pestanaActual = nombre;
-
     document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
     document.getElementById(`vista-${nombre}`).classList.add('activa');
-
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.toggle('activo', item.dataset.tab === nombre);
     });
@@ -3643,6 +3677,8 @@ const App = {
     } else if (nombre === 'perfil') {
       await this.renderizarPerfilSupervisor();
     }
+
+
   },
 
   /* ---------- Menú hamburguesa ---------- */
@@ -4058,6 +4094,15 @@ const App = {
     form.area.value = perfil ? perfil.area : '';
     document.getElementById('perfil-supervisor-avatar').textContent = perfil ? UI.iniciales(perfil.nombres, perfil.apellidos) : 'SP';
     document.getElementById('perfil-supervisor-resumen').textContent = perfil ? _nombreSupervisor(perfil) : 'Supervisor no configurado';
+    this._perfilSupervisorListo =
+    this.perfilSupervisorCompleto(perfil);
+    document
+      .getElementById('perfil-aviso-inicial')
+      ?.classList.toggle(
+        'completado',
+        this._perfilSupervisorListo
+      );
+    return perfil;
   },
 
   async guardarPerfilSupervisor(evento) {
@@ -4072,6 +4117,7 @@ const App = {
     });
     await this.renderizarPerfilSupervisor();
     UI.toast(`Perfil guardado: ${_nombreSupervisor(perfil)}`, 'exito');
+    await this.cambiarPestana('asistencia');
   },
 
   _fechaCierreParaCompartir() {

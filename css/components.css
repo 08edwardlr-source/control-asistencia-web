@@ -655,6 +655,7 @@ conserva el mismo ancho flexible que antes. */
 }
 .acciones-form .btn { flex: 1; }
 #vista-programacion { --prog-azul:#2563eb; --prog-naranja:#f97316; --prog-morado:#7c3aed; --prog-verde:#20b864; }
+#vista-programacion .tarjeta {box-sizing: border-box;width: 100%;}
 #vista-programacion .programacion-subtitulo { color:var(--gris-500); margin:-4px 0 18px; }
 #vista-programacion .programacion-panel { padding:22px; }
 #vista-programacion .programacion-fecha-fila { display:flex; align-items:end; gap:18px; padding-bottom:18px; border-bottom:1px solid var(--gris-200); }
@@ -1843,3 +1844,35 @@ body.auth-bloqueado{overflow:hidden}
 .btn-peligro{background:#dc2626!important;color:#fff!important;border-color:#dc2626!important}
 .btn-peligro:hover{background:#b91c1c!important}
 body.solo-lectura #btn-registrar-nuevo-directo,body.solo-lectura #btn-finalizar-turno,body.solo-lectura #btn-guardar-programacion,body.solo-lectura #fab-nuevo-trabajador,body.solo-lectura #btn-guardar-nuevo-trabajador,body.solo-lectura .btn-registro-menu,body.solo-lectura .programacion-accion.editar,body.solo-lectura .programacion-accion.eliminar{display:none!important}
+
+
+.perfil-aviso-inicial {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+}
+
+.perfil-aviso-inicial strong {
+  font-size: 14px;
+}
+
+.perfil-aviso-inicial span {
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.perfil-aviso-inicial.completado {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.perfil-aviso-inicial.completado strong::after {
+  content: " ✓";
+}

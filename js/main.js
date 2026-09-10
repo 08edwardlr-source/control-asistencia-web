@@ -544,22 +544,26 @@ const DB = {
   },
 
 // Genera códigos consecutivos: CALLAO-001, CALLAO-002...
-_generarQrId(trabajadoresExistentes) {
+_generarQrId(trabajadoresExistentes = []) {
   let numeroMayor = 0;
   trabajadoresExistentes.forEach(trabajador => {
-    const codigo = String(
-      trabajador.qrId || trabajador.id || ''
-    ).trim().toUpperCase();
-    const coincidencia = /^CALLAO-(\d+)$/.exec(codigo);
-    if (coincidencia) {
-      const numero = parseInt(coincidencia[1], 10);
-      if (numero > numeroMayor) {
-        numeroMayor = numero;
+    const posiblesCodigos = [
+      trabajador.qrId,
+      trabajador.qr_id,
+      trabajador.id
+    ];
+    posiblesCodigos.forEach(valor => {
+      const codigo = String(valor || '').trim().toUpperCase();
+      const resultado = /^CALLAO-(\d+)$/.exec(codigo);
+      if (resultado) {
+        numeroMayor = Math.max(
+          numeroMayor,
+          Number(resultado[1])
+        );
       }
-    }
+    });
   });
-  const siguienteNumero = numeroMayor + 1;
-  return `CALLAO-${String(siguienteNumero).padStart(3, '0')}`;
+  return `CALLAO-${String(numeroMayor + 1).padStart(3, '0')}`;
 },
 
   // Asigna un turno habitual (round-robin) a trabajadores guardados antes de
@@ -648,33 +652,82 @@ _generarQrId(trabajadoresExistentes) {
     return cierre ? Math.max(0, Number(cierre.programado) || 0) : 0;
   },
 
-  async crearTrabajador(datos) {
-    _exigirPermisoEdicion();
-    const trabajadores = await this.obtenerTrabajadores();
-    const existente = trabajadores.find(t => t.dni === datos.dni);
-    if (existente) {
-      throw new Error('Ya existe un trabajador con ese DNI');
+async crearTrabajador(datos) {
+  _exigirPermisoEdicion();
+
+  const trabajadores = await this.obtenerTrabajadores();
+  const dni = String(datos.dni || '').trim();
+
+  const existente = trabajadores.find(
+    trabajador => String(trabajador.dni).trim() === dni
+  );
+
+  if (existente) {
+    throw new Error('Ya existe un trabajador con ese DNI');
+  }
+
+  if (!Cloud.client || !Cloud.almacenId) {
+    throw new Error(
+      'No existe conexión con Supabase o no se encontró el almacén'
+    );
+  }
+
+  const turnos = await this.obtenerTurnos();
+  const nuevoCodigo = this._generarQrId(trabajadores);
+  const nuevo = {
+    id: nuevoCodigo,
+    dni: dni,
+    nombres: String(datos.nombres || '').trim(),
+    apellidos: String(datos.apellidos || '').trim(),
+    fechaNacimiento: datos.fechaNacimiento || '',
+    cargo: datos.cargo || 'Operario de trasvase',
+    area: datos.area || 'Maquila - Callao',
+    fechaIngreso: datos.fechaIngreso || _hoyISO(),
+    telefono: datos.telefono || '',
+    estado: datos.estado === 'INACTIVO'
+      ? 'INACTIVO'
+      : 'ACTIVO',
+    qrId: nuevoCodigo,
+    turnoAsignado:
+      datos.turnoAsignado ||
+      turnos[0]?.id ||
+      'T01'
+  };
+  const filaSupabase = {
+    id: nuevo.id,
+    almacen_id: Cloud.almacenId,
+    dni: nuevo.dni,
+    nombres: nuevo.nombres,
+    apellidos: nuevo.apellidos,
+    cargo: nuevo.cargo,
+    area: nuevo.area,
+    telefono: nuevo.telefono,
+    fecha_nacimiento: nuevo.fechaNacimiento || null,
+    fecha_ingreso: nuevo.fechaIngreso || null,
+    estado: nuevo.estado,
+    qr_id: nuevo.qrId,
+    turno_asignado: nuevo.turnoAsignado,
+    actualizado_en: new Date().toISOString()
+  };
+  const { error } = await Cloud.client
+    .from('trabajadores')
+    .insert(filaSupabase);
+  if (error) {
+    console.error('Error guardando trabajador:', error);
+    if (error.code === '23505') {
+      throw new Error(
+        'El DNI o código del trabajador ya está registrado'
+      );
     }
-    const turnos = await this.obtenerTurnos();
-        const nuevoCodigo = this._generarQrId(trabajadores);
-        const nuevo = {
-        id: nuevoCodigo,
-      dni: String(datos.dni).trim(),
-      nombres: datos.nombres.trim(),
-      apellidos: datos.apellidos.trim(),
-      fechaNacimiento: datos.fechaNacimiento || '',
-      cargo: datos.cargo || '',
-      area: datos.area || '',
-      fechaIngreso: datos.fechaIngreso || _hoyISO(),
-      telefono: datos.telefono || '',
-      estado: datos.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
-      qrId: nuevoCodigo,
-      turnoAsignado: datos.turnoAsignado || (turnos[0] && turnos[0].id) || 'T01'
-    };
-    trabajadores.push(nuevo);
-    _escribir(DB_KEYS.TRABAJADORES, trabajadores);
-    return nuevo;
-  },
+    throw new Error(
+      `Supabase no pudo guardar el trabajador: ${error.message}`
+    );
+  }
+  trabajadores.push(nuevo);
+  // También actualiza estado_almacen para que la web lo vea.
+  _escribir(DB_KEYS.TRABAJADORES, trabajadores);
+  return nuevo;
+},
 
   async actualizarTrabajador(id, cambios) {
     _exigirPermisoEdicion();

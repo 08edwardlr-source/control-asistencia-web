@@ -2813,48 +2813,243 @@ const Programacion = {
     this.actualizarTotal();
   },
 
-  actualizarTotal() {
-    const entradas = Array.from(document.querySelectorAll('[data-programacion-turno]'));
-    entradas.forEach(input => {
-      input.value = Math.max(0, parseInt(input.value, 10) || 0);
-      const reflejo = document.querySelector(`[data-programacion-reflejo="${input.dataset.programacionTurno}"]`);
-      if (reflejo) reflejo.textContent = input.value;
-    });
-    const total = entradas.reduce((s, input) => s + Number(input.value), 0);
-    const disponible = this.personalDisponible;
-    const sinProgramar = Math.max(disponible - total, 0);
-    const porcentajeReal = disponible > 0 ? total / disponible * 100 : 0;
-    const porcentajeVisual = Math.min(porcentajeReal, 100);
-    const excedido = total > disponible;
-    const color = excedido || porcentajeReal < 70 ? '#ef4444' : porcentajeReal < 100 ? '#f59e0b' : '#20b864';
-    document.getElementById('programacion-kpi-total').textContent = total;
-    document.getElementById('programacion-kpi-disponible').textContent = disponible;
-    document.getElementById('programacion-kpi-sin').textContent = sinProgramar;
-    document.getElementById('programacion-kpi-cumplimiento').textContent = `${porcentajeReal.toFixed(porcentajeReal % 1 ? 1 : 0)}%`;
-    document.getElementById('programacion-kpi-cumplimiento').style.color = color;
-    document.getElementById('programacion-kpi-sin').style.color = sinProgramar === 0 ? '#20b864' : color;
-    const barra = document.getElementById('programacion-progreso-barra');
-    barra.style.width = `${porcentajeVisual}%`; barra.style.background = color;
-    document.getElementById('programacion-progreso-texto').textContent = `${total} / ${disponible} trabajadores programados`;
-    document.getElementById('programacion-advertencia').classList.toggle('visible', excedido);
-    return { total, excedido };
-  },
+actualizarTotal() {
+  const entradas = Array.from(
+    document.querySelectorAll('[data-programacion-turno]')
+  );
 
-  async guardar(e) {
-    e.preventDefault();
-    const fechas = [...this.fechasSeleccionadas].sort();
-    if (!fechas.length) { UI.toast('Agrega al menos una fecha', 'alerta'); return; }
-    const validacion = this.actualizarTotal();
-    if (validacion.excedido && !confirm(`El total programado (${validacion.total}) supera el personal disponible (${this.personalDisponible}). ¿Deseas guardarlo de todas formas?`)) return;
-    const existentes = (await Promise.all(fechas.map(fecha => DB.obtenerProgramacion(fecha)))).filter(Boolean);
-    if (existentes.length && !confirm(`Ya existe programación en ${existentes.length} de las fechas seleccionadas. ¿Deseas actualizarla?`)) return;
-    const cantidades = {};
-    document.querySelectorAll('[data-programacion-turno]').forEach(input => { cantidades[input.dataset.programacionTurno] = input.value; });
-    await Promise.all(fechas.map(fecha => DB.guardarProgramacion(fecha, cantidades)));
-    await this.renderizarListado();
-    if (typeof Dashboard !== 'undefined') await Dashboard.actualizar();
-    UI.toast(`Programación guardada en ${fechas.length} fecha${fechas.length === 1 ? '' : 's'} y dashboard actualizado`, 'exito');
-  },
+  const cantidadesPorTurno = {};
+
+  entradas.forEach(input => {
+    const cantidad = Math.max(
+      0,
+      parseInt(input.value, 10) || 0
+    );
+
+    input.value = cantidad;
+
+    const turnoId =
+      input.dataset.programacionTurno;
+
+    cantidadesPorTurno[turnoId] = cantidad;
+
+    const reflejo = document.querySelector(
+      `[data-programacion-reflejo="${turnoId}"]`
+    );
+
+    if (reflejo) {
+      reflejo.textContent = cantidad;
+    }
+  });
+
+  const cantidades = Object.values(
+    cantidadesPorTurno
+  );
+
+  // Personal necesario = turno con más trabajadores.
+  const personalNecesario = cantidades.length
+    ? Math.max(...cantidades)
+    : 0;
+
+  // Suma de asignaciones de todos los turnos.
+  // Solo es un dato informativo.
+  const asignacionesPorDia = cantidades.reduce(
+    (total, cantidad) => total + cantidad,
+    0
+  );
+
+  const cantidadDias = Math.max(
+    this.fechasSeleccionadas.size,
+    1
+  );
+
+  const asignacionesTotales =
+    asignacionesPorDia * cantidadDias;
+
+  const disponible = this.personalDisponible;
+
+  const personalDisponibleAdicional = Math.max(
+    disponible - personalNecesario,
+    0
+  );
+
+  const porcentajeReal = disponible > 0
+    ? (personalNecesario / disponible) * 100
+    : 0;
+
+  const porcentajeVisual = Math.min(
+    porcentajeReal,
+    100
+  );
+
+  // Se excede únicamente si algún turno supera
+  // la cantidad total de trabajadores disponibles.
+  const excedido =
+    personalNecesario > disponible;
+
+  const color = excedido
+    ? '#ef4444'
+    : porcentajeReal < 70
+      ? '#f59e0b'
+      : '#20b864';
+
+  document.getElementById(
+    'programacion-kpi-total'
+  ).textContent = personalNecesario;
+
+  document.getElementById(
+    'programacion-kpi-disponible'
+  ).textContent = disponible;
+
+  document.getElementById(
+    'programacion-kpi-sin'
+  ).textContent = personalDisponibleAdicional;
+
+  const cumplimiento = document.getElementById(
+    'programacion-kpi-cumplimiento'
+  );
+
+  cumplimiento.textContent =
+    `${porcentajeReal.toFixed(
+      porcentajeReal % 1 ? 1 : 0
+    )}%`;
+
+  cumplimiento.style.color = color;
+
+  document.getElementById(
+    'programacion-kpi-sin'
+  ).style.color =
+    personalDisponibleAdicional === 0
+      ? '#20b864'
+      : color;
+
+  const barra = document.getElementById(
+    'programacion-progreso-barra'
+  );
+
+  barra.style.width = `${porcentajeVisual}%`;
+  barra.style.background = color;
+
+  const resumenTurnos = Object.entries(
+    cantidadesPorTurno
+  )
+    .map(([turno, cantidad]) =>
+      `${turno}: ${cantidad}`
+    )
+    .join(' · ');
+
+  document.getElementById(
+    'programacion-progreso-texto'
+  ).textContent =
+    `${resumenTurnos} · ` +
+    `${personalNecesario} trabajadores necesarios`;
+
+  document.getElementById(
+    'programacion-advertencia'
+  ).classList.toggle('visible', excedido);
+
+  return {
+    total: personalNecesario,
+    personalNecesario,
+    cantidadesPorTurno,
+    asignacionesPorDia,
+    asignacionesTotales,
+    cantidadDias,
+    disponible,
+    excedido
+  };
+},
+async guardar(e) {
+  e.preventDefault();
+
+  const fechas = [
+    ...this.fechasSeleccionadas
+  ].sort();
+
+  if (!fechas.length) {
+    UI.toast(
+      'Selecciona al menos una fecha',
+      'alerta'
+    );
+
+    return;
+  }
+
+  const validacion = this.actualizarTotal();
+
+  if (
+    validacion.excedido &&
+    !confirm(
+      `Un turno requiere ` +
+      `${validacion.personalNecesario} trabajadores, ` +
+      `pero solamente existen ` +
+      `${validacion.disponible} trabajadores activos.\n\n` +
+      `¿Deseas guardar la programación?`
+    )
+  ) {
+    return;
+  }
+
+  const existentes = (
+    await Promise.all(
+      fechas.map(fecha =>
+        DB.obtenerProgramacion(fecha)
+      )
+    )
+  ).filter(Boolean);
+
+  if (
+    existentes.length > 0 &&
+    !confirm(
+      `Ya existe programación en ` +
+      `${existentes.length} de las fechas seleccionadas.\n\n` +
+      `¿Deseas actualizarla?`
+    )
+  ) {
+    return;
+  }
+
+  const cantidades = {};
+
+  document
+    .querySelectorAll('[data-programacion-turno]')
+    .forEach(input => {
+      cantidades[
+        input.dataset.programacionTurno
+      ] = Math.max(
+        0,
+        parseInt(input.value, 10) || 0
+      );
+    });
+
+  // Cada día se guarda independientemente.
+  for (const fecha of fechas) {
+    await DB.guardarProgramacion(
+      fecha,
+      { ...cantidades }
+    );
+  }
+
+  await this.renderizarListado();
+
+  if (typeof Dashboard !== 'undefined') {
+    await Dashboard.actualizar();
+  }
+
+  const detalle = Object.entries(cantidades)
+    .map(([turno, cantidad]) =>
+      `${turno}: ${cantidad}`
+    )
+    .join(' · ');
+
+  UI.toast(
+    `✅ Programación guardada en ` +
+    `${fechas.length} día` +
+    `${fechas.length === 1 ? '' : 's'} · ` +
+    `${detalle}`,
+    'exito'
+  );
+},
 
   limpiar() {
     document.querySelectorAll('[data-programacion-turno]').forEach(input => { input.value = 0; });

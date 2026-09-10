@@ -543,17 +543,24 @@ const DB = {
     _escribir(claveMigracion, true);
   },
 
-  // Genera el siguiente identificador único de QR: EMP-00001, EMP-00002...
-  _generarQrId(trabajadoresExistentes) {
-    let max = 0;
-    trabajadoresExistentes.forEach(t => {
-      if (t.qrId) {
-        const m = /^EMP-(\d+)$/.exec(t.qrId);
-        if (m) max = Math.max(max, parseInt(m[1], 10));
+// Genera códigos consecutivos: CALLAO-001, CALLAO-002...
+_generarQrId(trabajadoresExistentes) {
+  let numeroMayor = 0;
+  trabajadoresExistentes.forEach(trabajador => {
+    const codigo = String(
+      trabajador.qrId || trabajador.id || ''
+    ).trim().toUpperCase();
+    const coincidencia = /^CALLAO-(\d+)$/.exec(codigo);
+    if (coincidencia) {
+      const numero = parseInt(coincidencia[1], 10);
+      if (numero > numeroMayor) {
+        numeroMayor = numero;
       }
-    });
-    return 'EMP-' + String(max + 1).padStart(5, '0');
-  },
+    }
+  });
+  const siguienteNumero = numeroMayor + 1;
+  return `CALLAO-${String(siguienteNumero).padStart(3, '0')}`;
+},
 
   // Asigna un turno habitual (round-robin) a trabajadores guardados antes de
   // que existiera el campo turnoAsignado. Necesario para poder calcular
@@ -649,8 +656,9 @@ const DB = {
       throw new Error('Ya existe un trabajador con ese DNI');
     }
     const turnos = await this.obtenerTurnos();
-    const nuevo = {
-      id: _uuid(),
+        const nuevoCodigo = this._generarQrId(trabajadores);
+        const nuevo = {
+        id: nuevoCodigo,
       dni: String(datos.dni).trim(),
       nombres: datos.nombres.trim(),
       apellidos: datos.apellidos.trim(),
@@ -660,7 +668,7 @@ const DB = {
       fechaIngreso: datos.fechaIngreso || _hoyISO(),
       telefono: datos.telefono || '',
       estado: datos.estado === 'INACTIVO' ? 'INACTIVO' : 'ACTIVO',
-      qrId: this._generarQrId(trabajadores),
+      qrId: nuevoCodigo,
       turnoAsignado: datos.turnoAsignado || (turnos[0] && turnos[0].id) || 'T01'
     };
     trabajadores.push(nuevo);

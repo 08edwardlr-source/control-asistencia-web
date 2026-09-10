@@ -757,52 +757,147 @@ async crearTrabajador(datos) {
 
   // Devuelve el registro de asistencia de HOY para ese trabajador, esté abierto
   // (solo entrada) o completo (entrada + salida). Se usa para evitar duplicados.
-  async obtenerAsistenciaDeHoy(dni, turnoId = null) {
-    const registros = await this.obtenerAsistencias();
-    const turnos = await this.obtenerTurnos();
-    const turno = turnos.find(t => t.id === turnoId) || null;
-    const fechaJornada = _fechaOperativaTurno(turno);
-    return registros.find(r => r.dni === dni && r.fecha === fechaJornada && (!turnoId || r.turnoId === turnoId)) || null;
-  },
+async obtenerAsistenciasDeHoy(dni, turnoId = null) {
+  const registros = await this.obtenerAsistencias();
+  const turnos = await this.obtenerTurnos();
 
-  async registrarEntrada({ dni, nombreCompleto, turnoId, turnoNombre, metodo = 'DNI' }) {
-    _exigirPermisoEdicion();
-    const registros = await this.obtenerAsistencias();
-    const ahora = new Date();
-    const horaStr = ahora.toTimeString().slice(0, 8);
+  const turno = turnos.find(t => t.id === turnoId) || null;
+  const fechaJornada = _fechaOperativaTurno(turno);
 
-    const turnos = await this.obtenerTurnos();
-    const turno = turnos.find(t => t.id === turnoId);
-    if (!turno) throw new Error('Turno no encontrado');
-    const fechaJornada = _fechaOperativaTurno(turno, ahora);
-    if (!_estaEnVentanaEntrada(turno, ahora)) throw new Error(`La hora actual no corresponde a la ventana de entrada de ${turno.nombre}`);
-    if (await this.obtenerCierre(fechaJornada, turnoId)) throw new Error('Este turno ya fue finalizado y no admite nuevos registros');
-    if (registros.some(r => r.dni === dni && r.fecha === fechaJornada && r.turnoId === turnoId)) throw new Error('El trabajador ya tiene un registro en este turno');
-    const supervisor = await this.obtenerPerfilSupervisor();
-    const estadoEntrada = _clasificarEntrada(horaStr, turno);
+  return registros.filter(registro =>
+    registro.dni === dni &&
+    registro.fecha === fechaJornada &&
+    (!turnoId || registro.turnoId === turnoId) &&
+    !registro.finalizado
+  );
+},
 
-    const nuevo = {
-      id: _uuid(),
-      dni,
-      nombreCompleto,
-      fecha: fechaJornada,
-      turnoId,
-      turnoNombre,
-      horaEntrada: horaStr,
-      horaSalida: null,
-      horasTrabajadas: null,
-      estado: estadoEntrada === 'TARDANZA' ? 'TARDANZA' : 'PRESENTE',
-      estadoEntrada,
-      estadoSalida: null,
-      supervisorEntrada: supervisor ? { ...supervisor } : null,
-      supervisorSalida: null,
-      metodo,
-      metodoEntrada: metodo
-    };
-    registros.unshift(nuevo);
-    _escribir(DB_KEYS.ASISTENCIAS, registros);
-    return nuevo;
-  },
+async obtenerAsistenciaDeHoy(dni, turnoId = null) {
+  const registros = await this.obtenerAsistenciasDeHoy(
+    dni,
+    turnoId
+  );
+
+  // Primero devuelve una jornada que todavía tenga la salida pendiente.
+  const registroAbierto = registros.find(
+    registro => !registro.horaSalida
+  );
+
+  if (registroAbierto) {
+    return registroAbierto;
+  }
+
+  // Si ambas están cerradas, devuelve la más reciente.
+  return registros[0] || null;
+},
+
+async registrarEntrada({
+  dni,
+  nombreCompleto,
+  turnoId,
+  turnoNombre,
+  metodo = 'DNI'
+}) {
+  _exigirPermisoEdicion();
+
+  const registros = await this.obtenerAsistencias();
+  const ahora = new Date();
+  const horaStr = ahora.toTimeString().slice(0, 8);
+
+  const turnos = await this.obtenerTurnos();
+  const turno = turnos.find(t => t.id === turnoId);
+
+  if (!turno) {
+    throw new Error('Turno no encontrado');
+  }
+
+  const fechaJornada = _fechaOperativaTurno(turno, ahora);
+
+  if (await this.obtenerCierre(fechaJornada, turnoId)) {
+    throw new Error(
+      'Este turno ya fue finalizado y no admite nuevos registros'
+    );
+  }
+
+  const jornadasPersona = registros.filter(registro =>
+    registro.dni === dni &&
+    registro.fecha === fechaJornada &&
+    registro.turnoId === turnoId &&
+    !registro.finalizado
+  );
+
+  const jornadaAbierta = jornadasPersona.find(
+    registro => !registro.horaSalida
+  );
+
+  if (jornadaAbierta) {
+    throw new Error(
+      'El trabajador todavía tiene una entrada sin salida'
+    );
+  }
+
+  if (jornadasPersona.length >= 2) {
+    throw new Error(
+      'El trabajador ya completó sus dos jornadas del día'
+    );
+  }
+
+  const numeroJornada = jornadasPersona.length + 1;
+
+  // La ventana de entrada normal solo se exige para la primera jornada.
+  // La segunda entrada se considera un reingreso.
+  if (
+    numeroJornada === 1 &&
+    !_estaEnVentanaEntrada(turno, ahora)
+  ) {
+    throw new Error(
+      `La hora actual no corresponde a la ventana de entrada de ${turno.nombre}`
+    );
+  }
+
+  const supervisor = await this.obtenerPerfilSupervisor();
+
+  const estadoEntrada = numeroJornada === 1
+    ? _clasificarEntrada(horaStr, turno)
+    : 'REINGRESO';
+
+  const nuevo = {
+    id: _uuid(),
+    dni,
+    nombreCompleto,
+    fecha: fechaJornada,
+    turnoId,
+    turnoNombre,
+
+    numeroJornada,
+
+    horaEntrada: horaStr,
+    horaSalida: null,
+    horasTrabajadas: null,
+
+    estado:
+      estadoEntrada === 'TARDANZA'
+        ? 'TARDANZA'
+        : 'PRESENTE',
+
+    estadoEntrada,
+    estadoSalida: null,
+
+    supervisorEntrada: supervisor
+      ? { ...supervisor }
+      : null,
+
+    supervisorSalida: null,
+
+    metodo,
+    metodoEntrada: metodo
+  };
+
+  registros.unshift(nuevo);
+  _escribir(DB_KEYS.ASISTENCIAS, registros);
+
+  return nuevo;
+},
 
   async registrarSalida(registroId, metodo = 'DNI') {
     _exigirPermisoEdicion();
@@ -819,9 +914,25 @@ async crearTrabajador(datos) {
 
     registro.horaSalida = horaSalida;
     registro.metodoSalida = metodo;
-    registro.horasTrabajadas = _calcularHoras(registro.horaEntrada, horaSalida);
-    registro.estadoSalida = _clasificarSalida(registro, turno);
-    registro.minutosSalidaAnticipada = _minutosSalidaAnticipada(registro, turno);
+registro.horasTrabajadas = _calcularHoras(
+  registro.horaEntrada,
+  horaSalida
+);
+
+// La primera salida corresponde al descanso o intervalo.
+// No se considera salida anticipada.
+if (registro.numeroJornada === 1) {
+  registro.estadoSalida = 'SALIDA INTERMEDIA';
+  registro.minutosSalidaAnticipada = 0;
+} else {
+  registro.estadoSalida = _clasificarSalida(
+    registro,
+    turno
+  );
+
+  registro.minutosSalidaAnticipada =
+    _minutosSalidaAnticipada(registro, turno);
+}
     registro.supervisorSalida = supervisor ? { ...supervisor } : null;
     registro.estadoEntrada = registro.estadoEntrada || (registro.estado === 'TARDANZA' ? 'TARDANZA' : 'PUNTUAL');
     registro.estado = registro.estadoEntrada === 'TARDANZA' ? 'TARDANZA' : 'PRESENTE';
@@ -1872,34 +1983,94 @@ const Attendance = {
     }
 
     // Jornada ya completa hoy: no se registra nada más
-    if (this.registroHoy && this.registroHoy.horaSalida) {
-      bloqueCompletado.classList.remove('oculto');
-      document.getElementById('completado-entrada').textContent = this.registroHoy.horaEntrada.slice(0, 5);
-      document.getElementById('completado-salida').textContent = this.registroHoy.horaSalida.slice(0, 5);
-      document.getElementById('completado-horas').textContent = this.registroHoy.horasTrabajadas || '—';
-      UI.toast('⚠️ Ya completó su jornada hoy', 'alerta');
-      return;
-    }
+    const jornadasHoy = await DB.obtenerAsistenciasDeHoy(
+  trabajador.dni,
+  turno.id
+);
 
-    // Ya tiene entrada abierta hoy → registrar salida automáticamente
-    if (this.registroHoy && !this.registroHoy.horaSalida) {
-      const registro = await DB.registrarSalida(this.registroHoy.id, this.metodoActual);
-      this.ocultarListaTrasCierre = false;
-      this.registroAbierto = null;
-      this.registroHoy = registro;
+const jornadaAbierta = jornadasHoy.find(
+  registro => !registro.horaSalida
+);
 
-      bloqueAuto.classList.remove('oculto');
-      bloqueAuto.classList.add('tipo-salida');
-      document.getElementById('icono-registro-auto').textContent = '👋';
-      document.getElementById('titulo-registro-auto').textContent = 'SALIDA REGISTRADA';
-      document.getElementById('hora-registro-auto').textContent = registro.horaSalida.slice(0, 8);
+const jornadasCompletas = jornadasHoy.filter(
+  registro => Boolean(registro.horaSalida)
+);
 
-      UI.toast(`✅ ${registro.estadoSalida} — Horas trabajadas: ${registro.horasTrabajadas}`, registro.estadoSalida === 'SALIDA ANTICIPADA' ? 'alerta' : 'exito');
-      if (typeof Dashboard !== 'undefined') Dashboard.actualizarSiVisible();
-      await this.renderizarRegistrosHoy();
-      return;
-    }
+this.registroHoy =
+  jornadaAbierta ||
+  jornadasCompletas[0] ||
+  null;
 
+// Si existe una entrada abierta, esta marcación será su salida.
+if (jornadaAbierta) {
+  const registro = await DB.registrarSalida(
+    jornadaAbierta.id,
+    this.metodoActual
+  );
+
+  this.ocultarListaTrasCierre = false;
+  this.registroAbierto = null;
+  this.registroHoy = registro;
+
+  bloqueAuto.classList.remove('oculto');
+  bloqueAuto.classList.add('tipo-salida');
+
+  document.getElementById(
+    'icono-registro-auto'
+  ).textContent = '👋';
+
+  document.getElementById(
+    'titulo-registro-auto'
+  ).textContent =
+    registro.numeroJornada === 1
+      ? 'SALIDA 1 REGISTRADA'
+      : 'SALIDA 2 REGISTRADA';
+
+  document.getElementById(
+    'hora-registro-auto'
+  ).textContent = registro.horaSalida.slice(0, 8);
+
+  UI.toast(
+    `✅ Salida ${registro.numeroJornada || 1} registrada`,
+    'exito'
+  );
+
+  if (typeof Dashboard !== 'undefined') {
+    Dashboard.actualizarSiVisible();
+  }
+
+  await this.renderizarRegistrosHoy();
+  return;
+}
+
+// Impide una quinta marcación.
+if (jornadasCompletas.length >= 2) {
+  const ultimoRegistro = jornadasCompletas[0];
+
+  bloqueCompletado.classList.remove('oculto');
+
+  document.getElementById(
+    'completado-entrada'
+  ).textContent =
+    ultimoRegistro.horaEntrada.slice(0, 5);
+
+  document.getElementById(
+    'completado-salida'
+  ).textContent =
+    ultimoRegistro.horaSalida.slice(0, 5);
+
+  document.getElementById(
+    'completado-horas'
+  ).textContent =
+    ultimoRegistro.horasTrabajadas || '—';
+
+  UI.toast(
+    '⚠️ El trabajador ya completó sus dos jornadas',
+    'alerta'
+  );
+
+  return;
+}
     // Sin registro hoy → registrar entrada automáticamente
     const registrosMismaJornada = (await DB.obtenerAsistencias()).filter(r =>
       !r.esDemo &&
@@ -1945,7 +2116,14 @@ const Attendance = {
     bloqueAuto.classList.remove('oculto');
     if (registro.estadoEntrada === 'TARDANZA') bloqueAuto.classList.add('tipo-alerta');
     document.getElementById('icono-registro-auto').textContent = registro.estadoEntrada === 'TARDANZA' ? '⏰' : '✅';
-    document.getElementById('titulo-registro-auto').textContent = registro.estadoEntrada === 'TARDANZA' ? 'ENTRADA CON TARDANZA' : 'ENTRADA PUNTUAL';
+    document.getElementById(
+  'titulo-registro-auto'
+).textContent =
+  registro.numeroJornada === 2
+    ? 'ENTRADA 2 REGISTRADA'
+    : registro.estadoEntrada === 'TARDANZA'
+      ? 'ENTRADA 1 CON TARDANZA'
+      : 'ENTRADA 1 REGISTRADA';
     document.getElementById('hora-registro-auto').textContent = registro.horaEntrada.slice(0, 8);
 
     UI.toast(`${registro.estadoEntrada === 'TARDANZA' ? '⚠️' : '✅'} ${registro.estadoEntrada} — Entrada: ${registro.horaEntrada.slice(0, 5)}`, registro.estadoEntrada === 'TARDANZA' ? 'alerta' : 'exito');

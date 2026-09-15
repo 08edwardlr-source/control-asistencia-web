@@ -1876,3 +1876,88 @@ body.solo-lectura #btn-registrar-nuevo-directo,body.solo-lectura #btn-finalizar-
 .perfil-aviso-inicial.completado strong::after {
   content: " ✓";
 }
+
+/* Menú de acciones de cada trabajador */
+
+.trabajador-estado-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menu-trabajador {
+  position: relative;
+}
+
+.btn-menu-trabajador {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--gris-200);
+  border-radius: 9px;
+  background: var(--blanco);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.btn-menu-trabajador:hover {
+  background: var(--gris-100);
+}
+
+.btn-menu-trabajador span {
+  width: 3px;
+  height: 3px;
+  background: var(--gris-700);
+  border-radius: 50%;
+}
+
+.menu-trabajador-opciones {
+  display: none;
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 150px;
+  padding: 6px;
+  background: var(--blanco);
+  border: 1px solid var(--gris-200);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+
+.menu-trabajador-opciones.visible {
+  display: block;
+}
+
+.opcion-trabajador {
+  width: 100%;
+  padding: 10px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--gris-700);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.opcion-trabajador:hover {
+  background: var(--gris-100);
+}
+
+.opcion-trabajador.eliminar {
+  color: #dc2626;
+}
+
+.opcion-trabajador.eliminar:hover {
+  background: #fef2f2;
+}

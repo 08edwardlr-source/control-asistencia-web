@@ -1961,3 +1961,687 @@ body.solo-lectura #btn-registrar-nuevo-directo,body.solo-lectura #btn-finalizar-
 .opcion-trabajador.eliminar:hover {
   background: #fef2f2;
 }
+
+/* =========================================================
+   DISEÑO RESPONSIVE GENERAL
+   Móvil, tablet, laptop y escritorio
+   ========================================================= */
+
+/* Evita que padding, bordes o imágenes desborden la pantalla */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+  max-width: 100%;
+}
+
+.app {
+  width: 100%;
+  max-width: 1440px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+.contenido {
+  width: 100%;
+  min-width: 0;
+}
+
+.vista {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Evita el diseño extraño de dos columnas en algunas vistas */
+.vista.activa {
+  display: block;
+}
+
+/* Las cuadrículas nunca deben desbordar */
+.form-grid,
+.programacion-resumen,
+.programacion-kpis,
+.dash-kpis,
+.dash-grid-charts,
+.dash-grid-paneles {
+  min-width: 0;
+}
+
+.form-grid > *,
+.programacion-resumen > *,
+.programacion-kpis > *,
+.dash-kpis > *,
+.dash-grid-charts > *,
+.dash-grid-paneles > * {
+  min-width: 0;
+}
+
+/* Tablas desplazables */
+.tabla-scroll,
+.programacion-tabla-scroll {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  max-width: 100%;
+}
+
+/* Menú lateral */
+.menu-lateral {
+  width: min(300px, 88vw);
+  max-width: 100%;
+}
+
+/* Modales seguros */
+.modal {
+  width: min(480px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: min(88vh, 88dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Lista de trabajadores */
+.fila-trabajador {
+  width: 100%;
+  min-width: 0;
+}
+
+.fila-trabajador-info {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.fila-trabajador-nombre,
+.fila-trabajador-meta {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Estado y menú de tres puntos */
+.trabajador-estado-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.menu-trabajador {
+  position: relative;
+}
+
+.menu-trabajador-opciones {
+  right: 0;
+  left: auto;
+  z-index: 150;
+}
+
+/* =========================================================
+   TELÉFONOS PEQUEÑOS
+   Hasta 380px
+   ========================================================= */
+
+@media (max-width: 380px) {
+  .header {
+    height: auto;
+    min-height: 58px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+
+  .header-izquierda {
+    min-width: 0;
+    gap: 7px;
+  }
+
+  .header-titulo {
+    max-width: 120px;
+    overflow: hidden;
+    font-size: 13px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-contador {
+    font-size: 10px;
+  }
+
+  .estado-sync {
+    min-width: 34px;
+    max-width: 34px;
+    padding: 7px;
+    overflow: hidden;
+    font-size: 0;
+  }
+
+  .estado-sync::before {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+  }
+
+  .contenido {
+    padding: 14px 10px 90px;
+  }
+
+  h2.titulo-vista {
+    font-size: 20px;
+  }
+
+  .tarjeta {
+    padding: 13px;
+    border-radius: 12px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .campo,
+  .campo.ancho-completo {
+    width: 100%;
+    grid-column: 1 !important;
+  }
+
+  .acciones-form,
+  .fila-botones,
+  .fila-botones-exportar {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 9px;
+  }
+
+  .acciones-form .btn,
+  .fila-botones .btn,
+  .fila-botones-exportar .btn {
+    width: 100%;
+  }
+
+  .programacion-dias-semana {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .programacion-dia {
+    min-width: 0;
+    padding: 8px 3px;
+  }
+
+  .programacion-resumen {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .programacion-kpis {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .programacion-kpi {
+    padding: 10px;
+  }
+
+  .programacion-botones {
+    grid-template-columns: 1fr;
+  }
+
+  .programacion-stepper {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+
+  .fila-trabajador {
+    position: relative;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 11px 9px;
+  }
+
+  .check-fila-trabajador {
+    margin-top: 8px;
+  }
+
+  .avatar-mini {
+    flex: 0 0 auto;
+  }
+
+  .fila-trabajador-meta {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  .btn-icono-qr {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+  }
+
+  .trabajador-estado-acciones {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  .trabajador-estado-acciones .badge {
+    max-width: 70px;
+    padding: 5px 6px;
+    font-size: 8px;
+  }
+
+  .btn-menu-trabajador {
+    width: 32px;
+    height: 32px;
+  }
+
+  .menu-trabajador-opciones {
+    position: absolute;
+    top: 36px;
+    right: 0;
+    width: 145px;
+  }
+
+  .modal {
+    bottom: 8px;
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 24px);
+    padding: 16px 13px;
+    border-radius: 18px;
+  }
+
+  .modal-header {
+    gap: 8px;
+  }
+
+  .modal-header .ficha-header {
+    min-width: 0;
+  }
+
+  .modal-header .ficha-nombre {
+    overflow-wrap: anywhere;
+  }
+
+  .nav-inferior {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    justify-content: flex-start;
+    scrollbar-width: none;
+  }
+
+  .nav-inferior::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    min-width: 64px;
+    flex: 0 0 64px;
+  }
+}
+
+/* =========================================================
+   TELÉFONOS
+   381px hasta 600px
+   ========================================================= */
+
+@media (min-width: 381px) and (max-width: 600px) {
+  .app {
+    max-width: 100%;
+  }
+
+  .header {
+    min-height: 62px;
+    padding: 8px 13px;
+  }
+
+  .header-titulo {
+    font-size: 15px;
+  }
+
+  .contenido {
+    padding: 16px 13px 92px;
+  }
+
+  .tarjeta {
+    padding: 15px;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .campo,
+  .campo.ancho-completo {
+    width: 100%;
+    grid-column: 1 !important;
+  }
+
+  .programacion-fecha-fila {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .programacion-fecha-fila .campo {
+    width: 100% !important;
+  }
+
+  .programacion-dias-semana {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .programacion-resumen {
+    grid-template-columns: 1fr;
+    gap: 13px;
+  }
+
+  .programacion-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+  }
+
+  .programacion-botones {
+    grid-template-columns: 1fr;
+  }
+
+  .acciones-form {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .fila-trabajador {
+    gap: 9px;
+    padding: 12px 10px;
+  }
+
+  .fila-trabajador-meta {
+    font-size: 11px;
+  }
+
+  .trabajador-estado-acciones {
+    gap: 5px;
+  }
+
+  .menu-trabajador-opciones {
+    width: 155px;
+  }
+
+  .modal {
+    bottom: 8px;
+    width: calc(100vw - 18px);
+    max-width: calc(100vw - 18px);
+    max-height: calc(100dvh - 26px);
+    padding: 17px 15px;
+    border-radius: 20px;
+  }
+
+  .nav-inferior {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    scrollbar-width: none;
+  }
+
+  .nav-inferior::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    min-width: 68px;
+    flex: 0 0 68px;
+  }
+}
+
+/* =========================================================
+   TABLETS
+   601px hasta 899px
+   ========================================================= */
+
+@media (min-width: 601px) and (max-width: 899px) {
+  .app {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .header {
+    padding: 0 24px;
+  }
+
+  .contenido {
+    padding: 24px 26px 100px;
+  }
+
+  .vista.activa {
+    display: block;
+  }
+
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .programacion-resumen {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .programacion-turno:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .programacion-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-grid-charts,
+  .dash-grid-paneles {
+    grid-template-columns: 1fr !important;
+  }
+
+  .fila-trabajador {
+    padding: 14px 16px;
+  }
+
+  .modal {
+    top: 50%;
+    bottom: auto;
+    width: min(520px, calc(100vw - 40px));
+    max-width: calc(100vw - 40px);
+    max-height: calc(100dvh - 60px);
+    transform: translate(-50%, -45%);
+    border-radius: 20px;
+  }
+
+  .modal.visible {
+    transform: translate(-50%, -50%);
+  }
+
+  .nav-inferior {
+    max-width: 100%;
+  }
+}
+
+/* =========================================================
+   LAPTOP Y ESCRITORIO
+   Desde 900px
+   ========================================================= */
+
+@media (min-width: 900px) {
+  .app {
+    width: 100%;
+    max-width: 1440px;
+    min-height: 100vh;
+  }
+
+  .header {
+    padding: 0 clamp(24px, 4vw, 60px);
+  }
+
+  .contenido {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding:
+      28px
+      clamp(28px, 4vw, 64px)
+      50px;
+  }
+
+  /* Evita que las vistas se dividan automáticamente */
+  .vista.activa {
+    display: block;
+  }
+
+  .programacion-resumen {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .programacion-kpis {
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+  }
+
+  .dash-kpis {
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+  }
+
+  .fila-trabajador {
+    padding: 14px 18px;
+  }
+
+  .modal {
+    top: 50%;
+    bottom: auto;
+    width: min(520px, calc(100vw - 48px));
+    max-width: calc(100vw - 48px);
+    max-height: calc(100vh - 70px);
+    transform: translate(-50%, -45%);
+    border-radius: 20px;
+  }
+
+  .modal.visible {
+    transform: translate(-50%, -50%);
+  }
+
+  .nav-inferior {
+    width: min(100%, 1440px);
+    max-width: 1440px;
+  }
+}
+
+/* =========================================================
+   PANTALLAS GRANDES
+   Desde 1400px
+   ========================================================= */
+
+@media (min-width: 1400px) {
+  .app {
+    max-width: 1600px;
+  }
+
+  .contenido {
+    max-width: 1500px;
+  }
+
+  .programacion-resumen {
+    gap: 20px;
+  }
+
+  .dash-kpis {
+    grid-template-columns:
+      repeat(5, minmax(0, 1fr));
+  }
+
+  .nav-inferior {
+    max-width: 1600px;
+  }
+}
+
+/* =========================================================
+   ALTURA REDUCIDA
+   Laptops o móviles en horizontal
+   ========================================================= */
+
+@media (max-height: 600px) {
+  .modal {
+    max-height: calc(100dvh - 20px);
+    overflow-y: auto;
+  }
+
+  .menu-lateral {
+    overflow-y: auto;
+  }
+
+  .header {
+    min-height: 54px;
+  }
+}
+
+/* =========================================================
+   MÓVIL EN HORIZONTAL
+   ========================================================= */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .contenido {
+    padding-top: 12px;
+  }
+
+  .modal {
+    top: 10px;
+    bottom: 10px;
+    max-height: calc(100dvh - 20px);
+    transform: translate(-50%, 0);
+    border-radius: 16px;
+  }
+
+  .modal.visible {
+    transform: translate(-50%, 0);
+  }
+
+  .programacion-resumen {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .programacion-kpis {
+    grid-template-columns:
+      repeat(4, minmax(0, 1fr));
+  }
+}

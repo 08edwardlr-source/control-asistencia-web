@@ -729,15 +729,93 @@ async crearTrabajador(datos) {
   return nuevo;
 },
 
-  async actualizarTrabajador(id, cambios) {
-    _exigirPermisoEdicion();
-    const trabajadores = await this.obtenerTrabajadores();
-    const idx = trabajadores.findIndex(t => t.id === id);
-    if (idx === -1) throw new Error('Trabajador no encontrado');
-    trabajadores[idx] = { ...trabajadores[idx], ...cambios };
-    _escribir(DB_KEYS.TRABAJADORES, trabajadores);
-    return trabajadores[idx];
-  },
+async actualizarTrabajador(id, cambios) {
+  _exigirPermisoEdicion();
+  const trabajadores = await this.obtenerTrabajadores();
+  const indice = trabajadores.findIndex(
+    trabajador => trabajador.id === id
+  );
+  if (indice === -1) {
+    throw new Error('Trabajador no encontrado');
+  }
+  const actualizado = {
+    ...trabajadores[indice],
+    ...cambios
+  };
+  // Actualiza la tabla normalizada de Supabase.
+  if (Cloud?.client && Cloud?.almacenId) {
+    const datosSupabase = {
+      nombres: actualizado.nombres || '',
+      apellidos: actualizado.apellidos || '',
+      cargo: actualizado.cargo || '',
+      area: actualizado.area || '',
+      telefono: actualizado.telefono || '',
+      fecha_nacimiento:
+        actualizado.fechaNacimiento || null,
+      fecha_ingreso:
+        actualizado.fechaIngreso || null,
+      estado: actualizado.estado || 'ACTIVO',
+      qr_id: actualizado.qrId || actualizado.id,
+      turno_asignado:
+        actualizado.turnoAsignado || 'T01',
+      actualizado_en: new Date().toISOString()
+    };
+    const { error } = await Cloud.client
+      .from('trabajadores')
+      .update(datosSupabase)
+      .eq('almacen_id', Cloud.almacenId)
+      .eq('id', id);
+    if (error) {
+      console.error(
+        'Error actualizando trabajador en Supabase:',
+        error
+      );
+      throw new Error(
+        `No se pudo actualizar en Supabase: ${error.message}`
+      );
+    }
+  }
+  trabajadores[indice] = actualizado;
+  // También sincroniza estado_almacen.
+  _escribir(DB_KEYS.TRABAJADORES, trabajadores);
+  return actualizado;
+},
+  async eliminarTrabajador(id) {
+  _exigirPermisoEdicion();
+  const trabajadores = await this.obtenerTrabajadores();
+  const trabajador = trabajadores.find(
+    item => item.id === id
+  );
+  if (!trabajador) {
+    throw new Error('Trabajador no encontrado');
+  }
+  // Elimina la fila de la tabla trabajadores.
+  if (Cloud?.client && Cloud?.almacenId) {
+    const { error } = await Cloud.client
+      .from('trabajadores')
+      .delete()
+      .eq('almacen_id', Cloud.almacenId)
+      .eq('id', id);
+    if (error) {
+      console.error(
+        'Error eliminando trabajador en Supabase:',
+        error
+      );
+      throw new Error(
+        `No se pudo eliminar en Supabase: ${error.message}`
+      );
+    }
+  }
+  const listaActualizada = trabajadores.filter(
+    item => item.id !== id
+  );
+  // Actualiza estado_almacen y localStorage.
+  _escribir(
+    DB_KEYS.TRABAJADORES,
+    listaActualizada
+  );
+  return trabajador;
+},
 
   async cambiarEstadoTrabajador(id, estado) {
     return this.actualizarTrabajador(id, { estado });

@@ -2199,7 +2199,7 @@ this._registrosEnCurso.add(
     this.trabajadorInactivoActual = trabajador.estado !== 'ACTIVO';
     this.registroHoy = await DB.obtenerAsistenciaDeHoy(trabajador.dni, turno ? turno.id : null);
 
-    try {
+   try {
   await this.procesarRegistroAutomatico(
     trabajador,
     turno
@@ -2217,6 +2217,7 @@ this._registrosEnCurso.add(
   if (typeof Workers !== 'undefined') {
     Workers.volverABuscar();
   }
+}
 },
 
   async procesarRegistroAutomatico(trabajador, turno) {

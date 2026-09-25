@@ -25,15 +25,32 @@ const Cloud = {
   asistenciasEliminadasPendientes: new Set(),
   CACHE_DIAS: 14,
   CLAVE_ELIMINADOS: 'asistencia_eliminados_pendientes_v1',
-  clavesSincronizadas: () => [DB_KEYS.TRABAJADORES, DB_KEYS.TURNOS, DB_KEYS.CIERRES, DB_KEYS.PROGRAMACIONES, DB_KEYS.PERFIL],
+  // El perfil pertenece a cada usuario y no debe compartirse
+// entre todos los supervisores del almacén.
+clavesSincronizadas: () => [
+  DB_KEYS.TRABAJADORES,
+  DB_KEYS.TURNOS,
+  DB_KEYS.CIERRES,
+  DB_KEYS.PROGRAMACIONES
+],
   clavesGestionadas: () => [...Cloud.clavesSincronizadas(), DB_KEYS.ASISTENCIAS],
   puedeEscribirAlmacen: () => ['administrador','supervisor'].includes(Cloud.rolAlmacen),
 
   init() {
     if (!window.supabase?.createClient) throw new Error('No se pudo cargar la conexión con Supabase. Revisa tu conexión a internet.');
-    this.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-    });
+    this.client = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
+      storage: window.sessionStorage,
+      storageKey: 'control-asistencia-sesion',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  }
+);
     if (!this._eventosRedRegistrados) {
       window.addEventListener('online', () => this.sincronizarPendientes());
       window.addEventListener('offline', () => this.actualizarEstadoSync('sin-conexion'));
@@ -55,7 +72,14 @@ const Cloud = {
 
   async obtenerPerfilAcceso(usuario) {
     const nombre = String(usuario?.user_metadata?.nombre || usuario?.email || '').trim();
-    const consulta = await this.client.from('perfiles').select('id,nombre,permisos').eq('id', usuario.id).maybeSingle();
+    const campos =
+  'id,nombre,permisos,nombres,apellidos,dni,cargo,area,perfil_completo';
+
+const consulta = await this.client
+  .from('perfiles')
+  .select(campos)
+  .eq('id', usuario.id)
+  .maybeSingle();
     if (consulta.error) throw consulta.error;
     if (consulta.data) return consulta.data;
 
@@ -64,11 +88,64 @@ const Cloud = {
     const creacion = await this.client
       .from('perfiles')
       .insert({ id: usuario.id, nombre })
-      .select('id,nombre,permisos')
+      .select(campos)
       .single();
     if (creacion.error) throw creacion.error;
     return creacion.data;
   },
+
+  async obtenerPerfilSupervisorUsuario() {
+  if (!this.client || !this.usuarioId) {
+    return null;
+  }
+
+  const { data, error } = await this.client
+    .from('perfiles')
+    .select(
+      'nombres,apellidos,dni,cargo,area,perfil_completo'
+    )
+    .eq('id', this.usuarioId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    nombres: data.nombres || '',
+    apellidos: data.apellidos || '',
+    dni: data.dni || '',
+    cargo: data.cargo || 'Supervisor',
+    area: data.area || ''
+  };
+},
+
+async guardarPerfilSupervisorUsuario(perfil) {
+  if (!this.client || !this.usuarioId) {
+    throw new Error('No existe una sesión válida');
+  }
+
+  const { data, error } = await this.client.rpc(
+    'guardar_mi_perfil_supervisor',
+    {
+      p_nombres: perfil.nombres,
+      p_apellidos: perfil.apellidos,
+      p_dni: perfil.dni,
+      p_cargo: perfil.cargo,
+      p_area: perfil.area
+    }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+},
 
   async listarAlmacenesActivos() {
     const { data, error } = await this.client.from('almacenes').select('id,codigo,nombre').eq('activo', true).order('nombre');
@@ -255,8 +332,17 @@ const Cloud = {
       metodo: registro.metodoEntrada || registro.metodo || 'DNI', metodo_salida: registro.metodoSalida || null,
       estado_entrada: registro.estadoEntrada || null, estado_salida: registro.estadoSalida || null,
       supervisor: _nombreSupervisor(registro.supervisorSalida || registro.supervisorEntrada), finalizado: registro.finalizado === true,
-      cierre_id: registro.cierreId || null, minutos_salida_anticipada: Math.max(0, Number(registro.minutosSalidaAnticipada) || 0),
-      datos_extra: extra, actualizado_en: actualizadoEn
+      cierre_id: registro.cierreId || null,
+minutos_salida_anticipada: Math.max(
+  0,
+  Number(registro.minutosSalidaAnticipada) || 0
+),
+numero_jornada: Math.min(
+  2,
+  Math.max(1, Number(registro.numeroJornada) || 1)
+),
+datos_extra: extra,
+actualizado_en: actualizadoEn
     };
   },
 
@@ -280,14 +366,35 @@ const Cloud = {
       estadoSalida: fila.estado_salida ?? extra.estadoSalida ?? null,
       finalizado: fila.finalizado === true,
       cierreId: fila.cierre_id || extra.cierreId || null,
-      minutosSalidaAnticipada: Math.max(0, Number(fila.minutos_salida_anticipada ?? extra.minutosSalidaAnticipada) || 0),
-      _remotoActualizadoEn: fila.actualizado_en || null
+      minutosSalidaAnticipada: Math.max(
+  0,
+  Number(
+    fila.minutos_salida_anticipada ??
+    extra.minutosSalidaAnticipada
+  ) || 0
+),
+numeroJornada: Math.min(
+  2,
+  Math.max(
+    1,
+    Number(
+      fila.numero_jornada ??
+      extra.numeroJornada
+    ) || 1
+  )
+),
+_remotoActualizadoEn: fila.actualizado_en || null
     };
   },
 
   async consultarAsistenciasRemotas(filtros = {}) {
     if (!this.client || !this.usuarioId || !this.almacenId) return [];
-    const columnas = 'id,fecha,dni,trabajador,turno_id,turno,entrada,salida,horas_trabajadas_minutos,metodo,metodo_salida,estado_entrada,estado_salida,finalizado,cierre_id,minutos_salida_anticipada,datos_extra,actualizado_en';
+    const columnas =
+  'id,fecha,dni,trabajador,turno_id,turno,entrada,salida,' +
+  'horas_trabajadas_minutos,metodo,metodo_salida,' +
+  'estado_entrada,estado_salida,finalizado,cierre_id,' +
+  'minutos_salida_anticipada,numero_jornada,' +
+  'datos_extra,actualizado_en';
     const filas = [];
     let cursor = null;
     while (true) {

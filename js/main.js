@@ -1974,6 +1974,9 @@ const Attendance = {
   ocultarListaTrasCierre: false,
   _timeoutRegreso: null,
   DELAY_AUTO_REGRESO: 1600,
+  _registrosEnCurso: new Set(),
+_ultimosRegistros: new Map(),
+BLOQUEO_DOBLE_CLIC_MS: 4000,
 
   /* ---------- Reloj en tiempo real ---------- */
 
@@ -2063,6 +2066,53 @@ const Attendance = {
       clearTimeout(this._timeoutRegreso);
       this._timeoutRegreso = null;
     }
+    const turno = await this.obtenerTurnoActual();
+
+if (!turno) {
+  UI.toast(
+    'Selecciona un turno antes de registrar asistencia',
+    'alerta'
+  );
+
+  document
+    .querySelector('.turnos-grid')
+    ?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+
+  return;
+}
+
+const claveBloqueo =
+  `${trabajador.dni}:${turno.id}`;
+
+const ultimaMarca =
+  this._ultimosRegistros.get(
+    claveBloqueo
+  ) || 0;
+
+const registroBloqueado =
+  this._registrosEnCurso.has(
+    claveBloqueo
+  );
+
+const marcadoReciente =
+  Date.now() - ultimaMarca <
+  this.BLOQUEO_DOBLE_CLIC_MS;
+
+if (registroBloqueado || marcadoReciente) {
+  UI.toast(
+    'Registro en proceso. Evita presionar o escanear dos veces',
+    'alerta'
+  );
+
+  return;
+}
+
+this._registrosEnCurso.add(
+  claveBloqueo
+);
 
     this.metodoActual = metodo;
 
@@ -2095,15 +2145,30 @@ const Attendance = {
     document.getElementById('ficha-telefono').textContent = trabajador.telefono || '—';
     document.getElementById('ficha-qrid').textContent = trabajador.qrId || '—';
 
-    const turno = await this.obtenerTurnoActual();
     document.getElementById('ficha-turno').textContent = turno ? `${turno.nombre} (${turno.inicio} - ${turno.fin})` : 'Sin turno seleccionado';
 
     this.trabajadorInactivoActual = trabajador.estado !== 'ACTIVO';
     this.registroHoy = await DB.obtenerAsistenciaDeHoy(trabajador.dni, turno ? turno.id : null);
 
-    await this.procesarRegistroAutomatico(trabajador, turno);
-    if (typeof Workers !== 'undefined') Workers.volverABuscar();
-  },
+    try {
+  await this.procesarRegistroAutomatico(
+    trabajador,
+    turno
+  );
+} finally {
+  this._registrosEnCurso.delete(
+    claveBloqueo
+  );
+
+  this._ultimosRegistros.set(
+    claveBloqueo,
+    Date.now()
+  );
+
+  if (typeof Workers !== 'undefined') {
+    Workers.volverABuscar();
+  }
+},
 
   async procesarRegistroAutomatico(trabajador, turno) {
     const bloqueAuto = document.getElementById('bloque-registro-auto');

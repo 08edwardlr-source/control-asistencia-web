@@ -85,16 +85,30 @@ const Auth = {
         ? { ...permisosPerfil, editar:true, administrar:false, tabs:[...new Set([...(permisosPerfil.tabs || []),'asistencia','historial','programacion','trabajadores','reportes','perfil'])] }
         : { ...permisosPerfil, editar:false, administrar:false };
     const usuario = {
-      id: usuarioSupabase.id,
-      nombre: perfil.nombre || usuarioSupabase.user_metadata?.nombre || usuarioSupabase.email,
-      usuario: usuarioSupabase.email,
-      email: usuarioSupabase.email,
-      permisos,
-      almacenId: asignacion.almacenId,
-      almacenNombre: asignacion.almacenNombre,
-      almacenCodigo: asignacion.almacenCodigo,
-      rolAlmacen: asignacion.rol
-    };
+  id: usuarioSupabase.id,
+
+  nombre:
+    perfil.nombre ||
+    usuarioSupabase.user_metadata?.nombre ||
+    usuarioSupabase.email,
+
+  usuario: usuarioSupabase.email,
+  email: usuarioSupabase.email,
+  permisos,
+
+  almacenId: asignacion.almacenId,
+  almacenNombre: asignacion.almacenNombre,
+  almacenCodigo: asignacion.almacenCodigo,
+  rolAlmacen: asignacion.rol,
+
+  perfilSupervisor: {
+    nombres: perfil.nombres || '',
+    apellidos: perfil.apellidos || '',
+    dni: perfil.dni || '',
+    cargo: perfil.cargo || 'Supervisor',
+    area: perfil.area || ''
+  }
+};
     this.usuarioActual = usuario;
     localStorage.setItem(this.CLAVE_USUARIOS, JSON.stringify([usuario]));
     await Cloud.cargarEstado(usuarioSupabase.id, asignacion);

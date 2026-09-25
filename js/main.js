@@ -362,7 +362,20 @@ function _estaEnVentanaEntrada(turno, ahora = new Date()) {
   const actual = ahora.getHours() * 60 + ahora.getMinutes();
   const inicio = horaAMinutos(turno.inicio);
   const diferencia = ((((actual - inicio + 12 * 60) % (24 * 60)) + 24 * 60) % (24 * 60)) - 12 * 60;
-  return diferencia >= -120 && diferencia <= 360;
+ const minutosAntes = Math.max(
+  0,
+  Number(turno.toleranciaAntes ?? 30)
+);
+
+const minutosDespues = Math.max(
+  0,
+  Number(turno.toleranciaDespues ?? 120)
+);
+
+return (
+  diferencia >= -minutosAntes &&
+  diferencia <= minutosDespues
+);
 }
 
 function _solicitarClaveOculta(mensaje) {
@@ -391,9 +404,36 @@ function _nombreSupervisor(perfil) {
 /* ------------------------------------------------------------------- */
 
 const TURNOS_POR_DEFECTO = [
-  { id: 'T01', nombre: 'TURNO 01', inicio: '06:00', fin: '14:00', icono: 'sun' },
-  { id: 'T02', nombre: 'TURNO 02', inicio: '14:00', fin: '22:00', icono: 'sunset' },
-  { id: 'T03', nombre: 'TURNO 03', inicio: '22:00', fin: '05:00', icono: 'moon' }
+  {
+    id: 'T01',
+    nombre: 'TURNO 01',
+    inicio: '06:00',
+    fin: '14:00',
+    icono: 'sun',
+    toleranciaAntes: 30,
+    toleranciaPuntualidad: 10,
+    toleranciaDespues: 120
+  },
+  {
+    id: 'T02',
+    nombre: 'TURNO 02',
+    inicio: '14:00',
+    fin: '22:00',
+    icono: 'sunset',
+    toleranciaAntes: 30,
+    toleranciaPuntualidad: 10,
+    toleranciaDespues: 120
+  },
+  {
+    id: 'T03',
+    nombre: 'TURNO 03',
+    inicio: '22:00',
+    fin: '05:00',
+    icono: 'moon',
+    toleranciaAntes: 30,
+    toleranciaPuntualidad: 10,
+    toleranciaDespues: 120
+  }
 ];
 
 /* ------------------------------------------------------------------- */
@@ -1433,7 +1473,16 @@ function _clasificarEntrada(horaEntrada, turno) {
   const entradaMin = horaAMinutos(horaEntrada);
   const inicioMin = horaAMinutos(turno.inicio);
   const diferencia = ((((entradaMin - inicioMin + 12 * 60) % (24 * 60)) + 24 * 60) % (24 * 60)) - 12 * 60;
-  return diferencia > 10 ? 'TARDANZA' : 'PUNTUAL';
+  const toleranciaPuntualidad = Math.max(
+  0,
+  Number(
+    turno.toleranciaPuntualidad ?? 10
+  )
+);
+
+return diferencia > toleranciaPuntualidad
+  ? 'TARDANZA'
+  : 'PUNTUAL';
 }
 
 function _clasificarSalida(registro, turno) {
@@ -4875,14 +4924,70 @@ const App = {
     const turnos = await DB.obtenerTurnos();
     const contenedor = document.getElementById('filas-turnos');
     contenedor.innerHTML = turnos.map(t => `
+  <div class="campo">
+    <label>${t.nombre}</label>
+
+    <div class="form-grid">
       <div class="campo">
-        <label>${t.nombre}</label>
-        <div class="form-grid">
-          <input type="time" name="inicio-${t.id}" value="${t.inicio}" required>
-          <input type="time" name="fin-${t.id}" value="${t.fin}" required>
-        </div>
+        <small>Hora de inicio</small>
+        <input
+          type="time"
+          name="inicio-${t.id}"
+          value="${t.inicio}"
+          required
+        >
       </div>
-    `).join('');
+
+      <div class="campo">
+        <small>Hora de salida</small>
+        <input
+          type="time"
+          name="fin-${t.id}"
+          value="${t.fin}"
+          required
+        >
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="campo">
+        <small>Entrada anticipada (minutos)</small>
+        <input
+          type="number"
+          min="0"
+          max="180"
+          name="antes-${t.id}"
+          value="${t.toleranciaAntes ?? 30}"
+          required
+        >
+      </div>
+
+      <div class="campo">
+        <small>Tolerancia de puntualidad (minutos)</small>
+        <input
+          type="number"
+          min="0"
+          max="180"
+          name="puntual-${t.id}"
+          value="${t.toleranciaPuntualidad ?? 10}"
+          required
+        >
+      </div>
+
+      <div class="campo">
+        <small>Entrada tardía máxima (minutos)</small>
+        <input
+          type="number"
+          min="0"
+          max="720"
+          name="despues-${t.id}"
+          value="${t.toleranciaDespues ?? 120}"
+          required
+        >
+      </div>
+    </div>
+  </div>
+`).join('');
     document.getElementById('modal-turnos').classList.add('visible');
     document.getElementById('modal-turnos-overlay').classList.add('visible');
   },
@@ -4897,10 +5002,26 @@ const App = {
     const form = evento.target;
     const turnos = await DB.obtenerTurnos();
     const actualizados = turnos.map(t => ({
-      ...t,
-      inicio: form[`inicio-${t.id}`].value,
-      fin: form[`fin-${t.id}`].value
-    }));
+  ...t,
+
+  inicio:
+    form[`inicio-${t.id}`].value,
+
+  fin:
+    form[`fin-${t.id}`].value,
+
+  toleranciaAntes: Number(
+    form[`antes-${t.id}`].value
+  ),
+
+  toleranciaPuntualidad: Number(
+    form[`puntual-${t.id}`].value
+  ),
+
+  toleranciaDespues: Number(
+    form[`despues-${t.id}`].value
+  )
+}));
     await DB.guardarTurnos(actualizados);
     await Attendance.renderizarTurnos();
     UI.toast('Turnos actualizados correctamente', 'exito');

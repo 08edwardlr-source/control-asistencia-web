@@ -405,20 +405,99 @@ const TURNOS_POR_DEFECTO = [
 const DB = {
 
   async obtenerPerfilSupervisor() {
-    return _leer(DB_KEYS.PERFIL, null);
-  },
+  const clavePersonal =
+    `${DB_KEYS.PERFIL}_${Cloud.usuarioId || 'local'}`;
+
+  try {
+    const perfilRemoto =
+      await Cloud.obtenerPerfilSupervisorUsuario();
+
+    if (perfilRemoto) {
+      localStorage.setItem(
+        clavePersonal,
+        JSON.stringify(perfilRemoto)
+      );
+    }
+
+    return perfilRemoto;
+  } catch (error) {
+    console.warn(
+      'Se utilizará el perfil personal guardado en este equipo',
+      error
+    );
+
+    return _leer(clavePersonal, null);
+  }
+},
 
   async guardarPerfilSupervisor(perfil) {
-    const guardado = {
-      nombres: String(perfil.nombres || '').trim(),
-      apellidos: String(perfil.apellidos || '').trim(),
-      dni: String(perfil.dni || '').trim(),
-      cargo: String(perfil.cargo || 'Supervisor').trim(),
-      area: String(perfil.area || '').trim()
-    };
-    _escribir(DB_KEYS.PERFIL, guardado);
-    return guardado;
-  },
+  const guardado = {
+    nombres: String(
+      perfil.nombres || ''
+    ).trim(),
+
+    apellidos: String(
+      perfil.apellidos || ''
+    ).trim(),
+
+    dni: String(
+      perfil.dni || ''
+    ).trim(),
+
+    cargo: String(
+      perfil.cargo || 'Supervisor'
+    ).trim(),
+
+    area: String(
+      perfil.area || ''
+    ).trim()
+  };
+
+  const respuesta =
+    await Cloud.guardarPerfilSupervisorUsuario(
+      guardado
+    );
+
+  const perfilRemoto = Array.isArray(respuesta)
+    ? respuesta[0]
+    : respuesta;
+
+  const definitivo =
+    perfilRemoto &&
+    typeof perfilRemoto === 'object'
+      ? {
+          nombres:
+            perfilRemoto.nombres ||
+            guardado.nombres,
+
+          apellidos:
+            perfilRemoto.apellidos ||
+            guardado.apellidos,
+
+          dni:
+            perfilRemoto.dni ||
+            guardado.dni,
+
+          cargo:
+            perfilRemoto.cargo ||
+            guardado.cargo,
+
+          area:
+            perfilRemoto.area ||
+            guardado.area
+        }
+      : guardado;
+
+  const clavePersonal =
+    `${DB_KEYS.PERFIL}_${Cloud.usuarioId || 'local'}`;
+
+  localStorage.setItem(
+    clavePersonal,
+    JSON.stringify(definitivo)
+  );
+
+  return definitivo;
+},
 
   /* ---------- Inicialización ---------- */
 
@@ -4103,7 +4182,10 @@ const App = {
 
    const perfilSupervisor = await this.renderizarPerfilSupervisor();
     this._perfilSupervisorListo =
-      this.perfilSupervisorCompleto(perfilSupervisor);
+  !Auth.puedeEditar() ||
+  this.perfilSupervisorCompleto(
+    perfilSupervisor
+  );
     await this.renderizarContadorGlobal();
     const tabInicial =
       new URLSearchParams(location.search).get('tab');
@@ -4607,7 +4689,8 @@ const App = {
     document.getElementById('perfil-supervisor-avatar').textContent = perfil ? UI.iniciales(perfil.nombres, perfil.apellidos) : 'SP';
     document.getElementById('perfil-supervisor-resumen').textContent = perfil ? _nombreSupervisor(perfil) : 'Supervisor no configurado';
     this._perfilSupervisorListo =
-    this.perfilSupervisorCompleto(perfil);
+  !Auth.puedeEditar() ||
+  this.perfilSupervisorCompleto(perfil);
     document
       .getElementById('perfil-aviso-inicial')
       ?.classList.toggle(

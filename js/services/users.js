@@ -11,6 +11,24 @@ const Workers = {
 
   cambiarMetodo(metodo) {
     if (
+  typeof Attendance !== 'undefined' &&
+  !Attendance.turnoSeleccionado
+) {
+  UI.toast(
+    'Selecciona un turno antes de elegir DNI o QR',
+    'alerta'
+  );
+
+  document
+    .querySelector('.turnos-grid')
+    ?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center'
+    });
+
+  return;
+}
+    if (
       typeof Attendance !== 'undefined' &&
       Attendance._timeoutRegreso
     ) {

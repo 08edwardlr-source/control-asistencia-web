@@ -1011,7 +1011,25 @@ async registrarEntrada({
   }
 
   const fechaJornada = _fechaOperativaTurno(turno, ahora);
+// No permite abrir un nuevo turno si el trabajador
+// todavía tiene una entrada pendiente en cualquier turno.
+const jornadaPendiente = registros.find(
+  registro =>
+    !registro.esDemo &&
+    registro.dni === dni &&
+    !registro.horaSalida &&
+    !registro.finalizado
+);
 
+if (jornadaPendiente) {
+  throw new Error(
+    `El trabajador tiene una jornada pendiente en ${
+      jornadaPendiente.turnoNombre ||
+      jornadaPendiente.turnoId ||
+      'otro turno'
+    }. Primero registra o corrige su salida.`
+  );
+}
   if (await this.obtenerCierre(fechaJornada, turnoId)) {
     throw new Error(
       'Este turno ya fue finalizado y no admite nuevos registros'

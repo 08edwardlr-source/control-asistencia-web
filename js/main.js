@@ -5,6 +5,8 @@
  * -----------------------------------------------------------------------
  */
 
+
+
 const UI = {
 
   toast(mensaje, tipo = 'info') {
@@ -1040,17 +1042,6 @@ async registrarEntrada({
   }
 
   const numeroJornada = jornadasPersona.length + 1;
-
-  // La ventana de entrada normal solo se exige para la primera jornada.
-  // La segunda entrada se considera un reingreso.
-  if (
-    numeroJornada === 1 &&
-    !_estaEnVentanaEntrada(turno, ahora)
-  ) {
-    throw new Error(
-      `La hora actual no corresponde a la ventana de entrada de ${turno.nombre}`
-    );
-  }
 
   const supervisor = await this.obtenerPerfilSupervisor();
 

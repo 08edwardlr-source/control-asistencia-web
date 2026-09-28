@@ -2206,27 +2206,66 @@ this._registrosEnCurso.add(
     document.getElementById('ficha-turno').textContent = turno ? `${turno.nombre} (${turno.inicio} - ${turno.fin})` : 'Sin turno seleccionado';
 
     this.trabajadorInactivoActual = trabajador.estado !== 'ACTIVO';
-    this.registroHoy = await DB.obtenerAsistenciaDeHoy(trabajador.dni, turno ? turno.id : null);
+    try {
+      this.registroHoy = await DB.obtenerAsistenciaDeHoy(
+        trabajador.dni,
+        turno.id
+      );
 
-   try {
-  await this.procesarRegistroAutomatico(
-    trabajador,
-    turno
-  );
-} finally {
-  this._registrosEnCurso.delete(
-    claveBloqueo
-  );
+      await this.procesarRegistroAutomatico(
+        trabajador,
+        turno
+      );
+    } catch (error) {
+      console.error(
+        'Error procesando el registro de asistencia:',
+        error
+      );
 
-  this._ultimosRegistros.set(
-    claveBloqueo,
-    Date.now()
-  );
+      UI.toast(
+        error?.message ||
+          'No se pudo completar el registro. Inténtalo nuevamente.',
+        'error'
+      );
+    } finally {
+      // Esta limpieza se ejecuta incluso si Supabase o la interfaz fallan.
+      this._registrosEnCurso.delete(claveBloqueo);
 
-  if (typeof Workers !== 'undefined') {
-    Workers.volverABuscar();
-  }
-}
+      this._ultimosRegistros.set(
+        claveBloqueo,
+        Date.now()
+      );
+
+      // Evita que una capa oscura de un modal bloquee la siguiente marca.
+      UI.cerrarTodosLosModales();
+
+      if (typeof Workers !== 'undefined') {
+        try {
+          Workers.volverABuscar();
+        } catch (errorRestaurando) {
+          console.error(
+            'Error restaurando la pantalla de asistencia:',
+            errorRestaurando
+          );
+
+          document
+            .getElementById('panel-busqueda')
+            ?.classList.remove('oculto');
+
+          document
+            .getElementById('panel-scanner')
+            ?.classList.add('oculto');
+
+          document
+            .getElementById('panel-ficha')
+            ?.classList.add('oculto');
+
+          document
+            .getElementById('panel-no-encontrado')
+            ?.classList.add('oculto');
+        }
+      }
+    }
 },
 
   async procesarRegistroAutomatico(trabajador, turno) {
@@ -4721,10 +4760,43 @@ const App = {
     });
 
     document.getElementById('form-nuevo-trabajador').addEventListener('submit', (e) => Workers.guardarNuevoTrabajador(e));
-    document.getElementById('btn-guardar-nuevo-trabajador').addEventListener('click', (e) => {
-      e.preventDefault();
-      Workers.guardarNuevoTrabajador({ preventDefault: () => {}, target: document.getElementById('form-nuevo-trabajador') });
-    });
+
+    const botonGuardarTrabajador = document.getElementById(
+      'btn-guardar-nuevo-trabajador'
+    );
+
+    botonGuardarTrabajador.addEventListener(
+      'click',
+      async evento => {
+        evento.preventDefault();
+
+        if (botonGuardarTrabajador.disabled) {
+          return;
+        }
+
+        const formulario = document.getElementById(
+          'form-nuevo-trabajador'
+        );
+
+        if (!formulario.reportValidity()) {
+          return;
+        }
+
+        botonGuardarTrabajador.disabled = true;
+        botonGuardarTrabajador.textContent = 'REGISTRANDO...';
+
+        try {
+          await Workers.guardarNuevoTrabajador({
+            preventDefault: () => {},
+            target: formulario
+          });
+        } finally {
+          botonGuardarTrabajador.disabled = false;
+          botonGuardarTrabajador.textContent =
+            'REGISTRAR TRABAJADOR';
+        }
+      }
+    );
     document.getElementById('form-editar-perfil').addEventListener('submit', (e) => Workers.guardarPerfil(e));
 
     document.getElementById('btn-finalizar-turno').addEventListener('click', () => Attendance.finalizarRegistroTurno());
@@ -5081,5 +5153,3 @@ document.addEventListener('DOMContentLoaded', () => {
   _validarDependenciasApp();
   Auth.init();
 });
-
-

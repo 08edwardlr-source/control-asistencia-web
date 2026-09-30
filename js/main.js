@@ -1616,8 +1616,24 @@ const Scanner = {
         url.searchParams.get('codigo') || url.pathname.split('/').filter(Boolean).pop() || texto;
     } catch (_) {}
 
-    const coincidencia = String(texto).toUpperCase().match(/EMP[-_\s]?\d+/);
-    return coincidencia ? coincidencia[0].replace(/[_\s]/g, '-') : String(texto).trim();
+    const codigoLimpio = String(texto)
+  .trim()
+  .toUpperCase();
+
+const coincidencia = codigoLimpio.match(
+  /(CALLAO|EMP)[-_\s]?(\d+)/
+);
+
+if (!coincidencia) {
+  return codigoLimpio;
+}
+
+const prefijo = coincidencia[1];
+const numero = coincidencia[2];
+
+return prefijo === 'CALLAO'
+  ? `CALLAO-${numero.padStart(3, '0')}`
+  : `EMP-${numero.padStart(5, '0')}`;
   },
 
   procesarImagen(imagen) {

@@ -1148,6 +1148,103 @@ if (registro.numeroJornada === 1) {
     return registro;
   },
 
+    // Cierra una jornada olvidada usando la hora final configurada del turno.
+  // Solo se utiliza cuando pertenece a un día operativo anterior.
+  async registrarSalidaAutomatica(registroId) {
+    _exigirPermisoEdicion();
+
+    const registros = await this.obtenerAsistencias();
+
+    const idx = registros.findIndex(
+      registro => registro.id === registroId
+    );
+
+    if (idx === -1) {
+      throw new Error(
+        'Registro pendiente no encontrado'
+      );
+    }
+
+    const registro = registros[idx];
+
+    // Si ya tiene salida, no realiza ningún cambio.
+    if (registro.horaSalida) {
+      return registro;
+    }
+
+    const turnos = await this.obtenerTurnos();
+
+    const turno = turnos.find(
+      item => item.id === registro.turnoId
+    );
+
+    if (!turno?.fin) {
+      throw new Error(
+        `No se pudo cerrar automáticamente ${
+          registro.turnoNombre ||
+          registro.turnoId ||
+          'el turno'
+        } porque no tiene hora final configurada`
+      );
+    }
+
+    // Convierte 14:00 en 14:00:00.
+    const horaSalida = turno.fin.length === 5
+      ? `${turno.fin}:00`
+      : turno.fin;
+
+    const supervisor =
+      await this.obtenerPerfilSupervisor();
+
+    registro.horaSalida = horaSalida;
+
+    registro.horasTrabajadas = _calcularHoras(
+      registro.horaEntrada,
+      horaSalida
+    );
+
+    registro.metodoSalida = 'AUTOMÁTICO';
+
+    registro.estadoSalida =
+      'CIERRE AUTOMÁTICO — SALIDA NO MARCADA';
+
+    registro.minutosSalidaAnticipada = 0;
+
+    registro.cierreAutomatico = true;
+
+    registro.cierreAutomaticoEn =
+      new Date().toISOString();
+
+    registro.motivoCierreAutomatico =
+      'La jornada permaneció abierta al iniciar un nuevo día operativo';
+
+    registro.supervisorSalida = supervisor
+      ? { ...supervisor }
+      : null;
+
+    registro.estadoEntrada =
+      registro.estadoEntrada ||
+      (
+        registro.estado === 'TARDANZA'
+          ? 'TARDANZA'
+          : 'PUNTUAL'
+      );
+
+    registro.estado =
+      registro.estadoEntrada === 'TARDANZA'
+        ? 'TARDANZA'
+        : 'PRESENTE';
+
+    registros[idx] = registro;
+
+    _escribir(
+      DB_KEYS.ASISTENCIAS,
+      registros
+    );
+
+    return registro;
+  },
+  
   async actualizarRegistroAsistencia(registroId, { dni, horaEntrada, horaSalida }) {
     _exigirPermisoEdicion();
     const registros = await this.obtenerAsistencias();
@@ -2310,6 +2407,84 @@ this._registrosEnCurso.add(
     if (!turno) {
       UI.toast('Selecciona un turno primero', 'alerta');
       return;
+    }
+
+        // Busca entradas abiertas del trabajador en cualquier turno.
+    const registrosAbiertos = (
+      await DB.obtenerAsistencias()
+    ).filter(
+      registro =>
+        !registro.esDemo &&
+        registro.dni === trabajador.dni &&
+        !registro.finalizado &&
+        !registro.horaSalida
+    );
+
+    const turnosConfigurados =
+      await DB.obtenerTurnos();
+
+    const cierresAutomaticos = [];
+
+    // Revisa todas las entradas que continúen abiertas.
+    for (
+      const registroAbiertoAnterior
+      of registrosAbiertos
+    ) {
+      const turnoAnterior =
+        turnosConfigurados.find(
+          item =>
+            item.id ===
+            registroAbiertoAnterior.turnoId
+        );
+
+      /*
+       * Calcula el día operativo actual del turno anterior.
+       * En T03, la madrugada continúa perteneciendo al
+       * día en que comenzó el turno.
+       */
+      const fechaOperativaActualDelTurno =
+        turnoAnterior
+          ? _fechaOperativaTurno(turnoAnterior)
+          : _hoyISO();
+
+      /*
+       * Solo cierra automáticamente si el registro
+       * pertenece a un día operativo anterior.
+       */
+      if (
+        registroAbiertoAnterior.fecha &&
+        registroAbiertoAnterior.fecha <
+          fechaOperativaActualDelTurno
+      ) {
+        const cerrado =
+          await DB.registrarSalidaAutomatica(
+            registroAbiertoAnterior.id
+          );
+
+        cierresAutomaticos.push(cerrado);
+      }
+    }
+
+    // Informa al supervisor qué registros fueron cerrados.
+    if (cierresAutomaticos.length) {
+      const turnosCerrados =
+        cierresAutomaticos
+          .map(
+            registro =>
+              registro.turnoNombre ||
+              registro.turnoId ||
+              'Turno'
+          )
+          .join(', ');
+
+      UI.toast(
+        `⚠️ Se cerró automáticamente ${turnosCerrados} porque no tenía salida. La marcación actual continuará como una nueva entrada.`,
+        'alerta'
+      );
+
+      if (typeof Dashboard !== 'undefined') {
+        Dashboard.actualizarSiVisible();
+      }
     }
 
     const fechaJornada = _fechaOperativaTurno(turno);

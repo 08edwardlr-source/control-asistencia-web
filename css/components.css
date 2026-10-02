@@ -2645,3 +2645,64 @@ table {
       repeat(4, minmax(0, 1fr));
   }
 }
+/* =====================================================
+   SCROLL INTERNO PARA REGISTROS DE HOY
+   ===================================================== */
+
+.contenedor-scroll-registros {
+  width: 100%;
+  max-height: 410px;
+
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+
+  padding: 4px 8px 4px 2px;
+
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #e2e8f0;
+}
+
+/* Evita espacio adicional en la última tarjeta */
+.contenedor-scroll-registros .tarjeta-historial:last-child {
+  margin-bottom: 0;
+}
+
+/* Barra del scroll para Chrome, Edge y Opera */
+.contenedor-scroll-registros::-webkit-scrollbar {
+  width: 8px;
+}
+
+/* Fondo de la barra */
+.contenedor-scroll-registros::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+/* Parte que se desplaza */
+.contenedor-scroll-registros::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
+}
+
+/* Color al pasar el cursor */
+.contenedor-scroll-registros::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Adaptación para celulares y tablets */
+@media (max-width: 768px) {
+  .contenedor-scroll-registros {
+    max-height: 340px;
+    padding-right: 5px;
+  }
+}
+
+/* Pantallas pequeñas */
+@media (max-width: 480px) {
+  .contenedor-scroll-registros {
+    max-height: 300px;
+  }
+}

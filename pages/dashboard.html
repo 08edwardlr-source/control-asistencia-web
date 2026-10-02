@@ -250,13 +250,31 @@
 
       </div>
 
-      <div class="seccion-titulo">REGISTROS DE HOY</div>
+      <div class="encabezado-registros-hoy">
+  <div class="seccion-titulo">REGISTROS DE HOY</div>
+
+  <div class="contadores-registros-hoy">
+    <div class="contador-asistencia contador-entrada">
+      <span>INGRESARON</span>
+      <strong id="contador-ingresaron">0</strong>
+    </div>
+
+    <div class="contador-asistencia contador-salida">
+      <span>SALIERON</span>
+      <strong id="contador-salieron">0</strong>
+    </div>
+
+    <div class="contador-asistencia contador-pendiente">
+      <span>POR SALIR</span>
+      <strong id="contador-por-salir">0</strong>
+    </div>
+  </div>
+</div>
 
 <div
   id="lista-registros-hoy"
   class="contenedor-scroll-registros"
->
-</div>
+></div>
 
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px;">
         <button type="button" class="btn btn-outline btn-full btn-lg" id="btn-registrar-nuevo-directo">+ REGISTRAR NUEVO PERSONAL</button>

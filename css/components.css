@@ -2706,3 +2706,129 @@ table {
     max-height: 300px;
   }
 }
+
+/* =====================================================
+   CONTADORES DE REGISTROS DE HOY
+   ===================================================== */
+
+.encabezado-registros-hoy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 24px 0 12px;
+}
+
+.encabezado-registros-hoy .seccion-titulo {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.contadores-registros-hoy {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.contador-asistencia {
+  min-width: 100px;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  padding: 7px 11px;
+  border: 1px solid var(--gris-200);
+  border-radius: 9px;
+  background: var(--blanco);
+  box-shadow: var(--sombra);
+}
+
+.contador-asistencia span {
+  color: var(--gris-500);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.contador-asistencia strong {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Ingresos */
+.contador-entrada {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.contador-entrada strong {
+  color: #16a34a;
+}
+
+/* Salidas */
+.contador-salida {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.contador-salida strong {
+  color: #2563eb;
+}
+
+/* Personas pendientes de salida */
+.contador-pendiente {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.contador-pendiente strong {
+  color: #ea580c;
+}
+
+/* Adaptación para tablet */
+@media (min-width: 481px) and (max-width: 1024px) {
+  .encabezado-registros-hoy {
+    gap: 10px;
+  }
+
+  .contadores-registros-hoy {
+    gap: 6px;
+  }
+
+  .contador-asistencia {
+    min-width: 88px;
+    padding: 7px 8px;
+    gap: 6px;
+  }
+
+  .contador-asistencia span {
+    font-size: 8px;
+  }
+
+  .contador-asistencia strong {
+    font-size: 17px;
+  }
+}
+
+/* Adaptación para celular */
+@media (max-width: 600px) {
+  .encabezado-registros-hoy {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .contadores-registros-hoy {
+    width: 100%;
+  }
+
+  .contador-asistencia {
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+  }
+}

@@ -2715,12 +2715,53 @@ if (jornadasCompletas.length >= 2) {
   /* ---------- Lista en vivo de registros del día ---------- */
 
   async renderizarRegistrosHoy() {
-    const contenedor = document.getElementById('lista-registros-hoy');
-    if (!contenedor) return;
-    if (this.ocultarListaTrasCierre) {
-      contenedor.innerHTML = `<div class="estado-vacio">Turno finalizado. No hay registros pendientes.</div>`;
-      return;
+  const contenedor = document.getElementById('lista-registros-hoy');
+
+  const contadorIngresaron =
+    document.getElementById('contador-ingresaron');
+
+  const contadorSalieron =
+    document.getElementById('contador-salieron');
+
+  const contadorPorSalir =
+    document.getElementById('contador-por-salir');
+
+  if (!contenedor) return;
+
+  const actualizarContadores = (lista = []) => {
+    const ingresos = lista.filter(registro =>
+      Boolean(registro.horaEntrada)
+    ).length;
+
+    const salidas = lista.filter(registro =>
+      Boolean(registro.horaSalida)
+    ).length;
+
+    const pendientes = Math.max(ingresos - salidas, 0);
+
+    if (contadorIngresaron) {
+      contadorIngresaron.textContent = ingresos;
     }
+
+    if (contadorSalieron) {
+      contadorSalieron.textContent = salidas;
+    }
+
+    if (contadorPorSalir) {
+      contadorPorSalir.textContent = pendientes;
+    }
+  };
+    if (this.ocultarListaTrasCierre) {
+  actualizarContadores([]);
+
+  contenedor.innerHTML = `
+    <div class="estado-vacio">
+      Turno finalizado. No hay registros pendientes.
+    </div>
+  `;
+
+  return;
+}
 
     const hoy = _hoyISO();
     const turnos = await DB.obtenerTurnos();
@@ -2739,6 +2780,8 @@ if (jornadasCompletas.length >= 2) {
       })
       .sort((a, b) => (a.horaEntrada < b.horaEntrada ? 1 : -1));
 
+    actualizarContadores(registros);
+    
     if (registros.length === 0) {
       contenedor.innerHTML = `<div class="estado-vacio">Todavía no hay registros hoy</div>`;
       return;

@@ -2692,11 +2692,11 @@ table {
   background: #64748b;
 }
 
-/* Adaptación para celulares y tablets */
-@media (max-width: 768px) {
-  .contenedor-scroll-registros {
-    max-height: 340px;
-    padding-right: 5px;
+/* Tablets: permite visualizar aproximadamente 4 trabajadores */
+@media (min-width: 481px) and (max-width: 1024px) {
+  #lista-registros-hoy.contenedor-scroll-registros {
+    height: 680px;
+    min-height: 680px;
   }
 }
 

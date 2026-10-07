@@ -2408,36 +2408,6 @@ this._registrosEnCurso.add(claveBloqueo);
   }
 }
 
-      // Evita que una capa oscura de un modal bloquee la siguiente marca.
-      UI.cerrarTodosLosModales();
-
-      if (typeof Workers !== 'undefined') {
-        try {
-          Workers.volverABuscar();
-        } catch (errorRestaurando) {
-          console.error(
-            'Error restaurando la pantalla de asistencia:',
-            errorRestaurando
-          );
-
-          document
-            .getElementById('panel-busqueda')
-            ?.classList.remove('oculto');
-
-          document
-            .getElementById('panel-scanner')
-            ?.classList.add('oculto');
-
-          document
-            .getElementById('panel-ficha')
-            ?.classList.add('oculto');
-
-          document
-            .getElementById('panel-no-encontrado')
-            ?.classList.add('oculto');
-        }
-      }
-    }
 },
 
   async procesarRegistroAutomatico(trabajador, turno) {

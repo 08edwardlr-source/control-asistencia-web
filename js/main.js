@@ -404,7 +404,6 @@ function _nombreSupervisor(perfil) {
 /* ------------------------------------------------------------------- */
 /* Turnos por defecto                                                   */
 /* ------------------------------------------------------------------- */
-
 const TURNOS_POR_DEFECTO = [
   {
     id: 'T01',
@@ -414,7 +413,13 @@ const TURNOS_POR_DEFECTO = [
     icono: 'sun',
     toleranciaAntes: 30,
     toleranciaPuntualidad: 10,
-    toleranciaDespues: 120
+    toleranciaDespues: 120,
+
+    /*
+     * Seis horas adicionales para marcar
+     * una salida real.
+     */
+    toleranciaSalidaExtra: 360
   },
   {
     id: 'T02',
@@ -424,20 +429,21 @@ const TURNOS_POR_DEFECTO = [
     icono: 'sunset',
     toleranciaAntes: 30,
     toleranciaPuntualidad: 10,
-    toleranciaDespues: 120
+    toleranciaDespues: 120,
+    toleranciaSalidaExtra: 360
   },
   {
     id: 'T03',
     nombre: 'TURNO 03',
     inicio: '22:00',
-    fin: '05:00',
+    fin: '06:00',
     icono: 'moon',
     toleranciaAntes: 30,
     toleranciaPuntualidad: 10,
-    toleranciaDespues: 120
+    toleranciaDespues: 120,
+    toleranciaSalidaExtra: 360
   }
 ];
-
 /* ------------------------------------------------------------------- */
 /* API pública: DB                                                      */
 /* Todas las funciones son async para que el reemplazo por Supabase     */
@@ -543,18 +549,64 @@ const DB = {
 
   /* ---------- Inicialización ---------- */
 
-  async init() {
-    if (_leer(DB_KEYS.TURNOS, null) === null) {
-      _escribir(DB_KEYS.TURNOS, TURNOS_POR_DEFECTO);
-    } else {
-      const turnosGuardados = _leer(DB_KEYS.TURNOS, TURNOS_POR_DEFECTO);
-      const nocturno = turnosGuardados.find(t => t.id === 'T03');
-      if (nocturno && nocturno.inicio === '22:00' && nocturno.fin === '06:00') {
-        nocturno.fin = '05:00';
-        _escribir(DB_KEYS.TURNOS, turnosGuardados);
+async init() {
+  /*
+   * Crea la configuración inicial cuando todavía
+   * no existen turnos guardados.
+   */
+  if (_leer(DB_KEYS.TURNOS, null) === null) {
+    _escribir(
+      DB_KEYS.TURNOS,
+      TURNOS_POR_DEFECTO
+    );
+  }
+
+  /*
+   * Actualiza también los turnos que ya estaban
+   * guardados anteriormente en el navegador
+   * y programa su sincronización con Supabase.
+   */
+  const claveMigracionSalidaExtra =
+    'asistencia_salida_extra_6_horas_v4';
+
+  if (
+    !_leer(
+      claveMigracionSalidaExtra,
+      false
+    )
+  ) {
+    const turnosActualizados = _leer(
+      DB_KEYS.TURNOS,
+      TURNOS_POR_DEFECTO
+    );
+
+    turnosActualizados.forEach(turno => {
+      /*
+       * Seis horas para registrar una salida real
+       * después de terminar el turno.
+       */
+      turno.toleranciaSalidaExtra = 360;
+
+      /*
+       * El Turno 3 ahora termina a las 06:00.
+       */
+      if (turno.id === 'T03') {
+        turno.fin = '06:00';
       }
-    }
-    if (_leer(DB_KEYS.TRABAJADORES, null) === null) {
+    });
+
+    _escribir(
+      DB_KEYS.TURNOS,
+      turnosActualizados
+    );
+
+    _escribir(
+      claveMigracionSalidaExtra,
+      true
+    );
+  }
+
+  if (_leer(DB_KEYS.TRABAJADORES, null) === null) {
       _escribir(DB_KEYS.TRABAJADORES, []);
     } else {
       await this._migrarQrIds();

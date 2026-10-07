@@ -1178,19 +1178,98 @@ async actualizarTrabajador(id, cambios) {
 
   // Devuelve el registro de asistencia de HOY para ese trabajador, esté abierto
   // (solo entrada) o completo (entrada + salida). Se usa para evitar duplicados.
-async obtenerAsistenciasDeHoy(dni, turnoId = null) {
-  const registros = await this.obtenerAsistencias();
-  const turnos = await this.obtenerTurnos();
+/*
+ * Obtiene las jornadas de una persona correspondientes
+ * al turno seleccionado.
+ *
+ * También encuentra una entrada abierta del día anterior
+ * si todavía está dentro de las seis horas adicionales.
+ */
+async obtenerAsistenciasDeHoy(
+  dni,
+  turnoId = null
+) {
+  const registros =
+    await this.obtenerAsistencias();
 
-  const turno = turnos.find(t => t.id === turnoId) || null;
-  const fechaJornada = _fechaOperativaTurno(turno);
+  const turnos =
+    await this.obtenerTurnos();
 
-  return registros.filter(registro =>
-    registro.dni === dni &&
-    registro.fecha === fechaJornada &&
-    (!turnoId || registro.turnoId === turnoId) &&
-    !registro.finalizado
-  );
+  const turno = turnos.find(
+    item => item.id === turnoId
+  ) || null;
+
+  const fechaJornada =
+    _fechaOperativaTurno(turno);
+
+  const ahora = new Date();
+
+  return registros.filter(registro => {
+    /*
+     * Ignora los registros de demostración.
+     */
+    if (registro.esDemo) {
+      return false;
+    }
+
+    /*
+     * Solo revisa al trabajador indicado.
+     */
+    if (
+      String(registro.dni) !==
+      String(dni)
+    ) {
+      return false;
+    }
+
+    /*
+     * Solo revisa el turno seleccionado.
+     */
+    if (
+      turnoId &&
+      registro.turnoId !== turnoId
+    ) {
+      return false;
+    }
+
+    /*
+     * Ignora registros que ya fueron finalizados.
+     */
+    if (registro.finalizado) {
+      return false;
+    }
+
+    /*
+     * Acepta los registros de la fecha operativa actual.
+     */
+    if (registro.fecha === fechaJornada) {
+      return true;
+    }
+
+    /*
+     * Si existe una entrada sin salida de otra fecha,
+     * comprueba si todavía se encuentra dentro de las
+     * seis horas adicionales.
+     */
+    if (
+      !registro.horaSalida &&
+      turno
+    ) {
+      const fechaLimite =
+        _fechaHoraLimiteSalida(
+          registro,
+          turno
+        );
+
+      return (
+        fechaLimite &&
+        ahora.getTime() <=
+          fechaLimite.getTime()
+      );
+    }
+
+    return false;
+  });
 },
 
 async obtenerAsistenciaDeHoy(dni, turnoId = null) {
@@ -2688,32 +2767,36 @@ this._registrosEnCurso.add(claveBloqueo);
             registroAbiertoAnterior.turnoId
         );
 
-      /*
-       * Calcula el día operativo actual del turno anterior.
-       * En T03, la madrugada continúa perteneciendo al
-       * día en que comenzó el turno.
-       */
-      const fechaOperativaActualDelTurno =
-        turnoAnterior
-          ? _fechaOperativaTurno(turnoAnterior)
-          : _hoyISO();
+     /*
+ * Calcula cuándo terminan las seis horas adicionales
+ * para la jornada abierta.
+ */
+const fechaLimiteSalida =
+  _fechaHoraLimiteSalida(
+    registroAbiertoAnterior,
+    turnoAnterior
+  );
 
-      /*
-       * Solo cierra automáticamente si el registro
-       * pertenece a un día operativo anterior.
-       */
-      if (
-        registroAbiertoAnterior.fecha &&
-        registroAbiertoAnterior.fecha <
-          fechaOperativaActualDelTurno
-      ) {
-        const cerrado =
-          await DB.registrarSalidaAutomatica(
-            registroAbiertoAnterior.id
-          );
+/*
+ * Comprueba si ya venció el plazo.
+ */
+const plazoSalidaVencido =
+  fechaLimiteSalida &&
+  new Date().getTime() >
+    fechaLimiteSalida.getTime();
 
-        cierresAutomaticos.push(cerrado);
-      }
+/*
+ * Solo cierra automáticamente la jornada después
+ * de vencer las seis horas adicionales.
+ */
+if (plazoSalidaVencido) {
+  const cerrado =
+    await DB.registrarSalidaAutomatica(
+      registroAbiertoAnterior.id
+    );
+
+  cierresAutomaticos.push(cerrado);
+}
     }
 
     // Informa al supervisor qué registros fueron cerrados.

@@ -345,17 +345,57 @@ function _sumarDiasISO(fechaISO, dias) {
   return _fechaLocalISO(fecha);
 }
 
-function _esTurnoNocturno(turno) {
-  return !!turno && horaAMinutos(turno.fin) <= horaAMinutos(turno.inicio);
+/* =========================================================
+   CONTROL DE TURNOS Y PLAZO ADICIONAL DE SALIDA
+   ========================================================= */
+
+/*
+ * Convierte una hora como 06:00 en minutos.
+ *
+ * Ejemplo:
+ * 06:00 = 360 minutos.
+ * 14:00 = 840 minutos.
+ */
+function horaAMinutosSegura(hora) {
+  if (!hora) {
+    return 0;
+  }
+
+  const [horas, minutos] =
+    String(hora)
+      .split(':')
+      .map(Number);
+
+  return (
+    (Number(horas) || 0) * 60 +
+    (Number(minutos) || 0)
+  );
 }
 
-// El turno nocturno pertenece al día en que comenzó. Entre medianoche y su
-// hora de fin, cualquier entrada/salida se asocia con la fecha anterior.
 /*
- * Calcula la fecha operativa del turno.
+ * Determina si un turno comienza un día
+ * y termina al día siguiente.
  *
- * Para los turnos nocturnos, la madrugada y el plazo
- * adicional pertenecen al día en que comenzó el turno.
+ * Ejemplo:
+ * T03 comienza 22:00 y termina 06:00.
+ */
+function _esTurnoNocturno(turno) {
+  if (!turno?.inicio || !turno?.fin) {
+    return false;
+  }
+
+  return (
+    horaAMinutosSegura(turno.fin) <=
+    horaAMinutosSegura(turno.inicio)
+  );
+}
+
+/*
+ * Obtiene la fecha operativa de la jornada.
+ *
+ * Un Turno 3 que comienza el 7 de octubre a las 22:00
+ * y termina el 8 de octubre pertenece operativamente
+ * al 7 de octubre.
  */
 function _fechaOperativaTurno(
   turno,
@@ -365,7 +405,7 @@ function _fechaOperativaTurno(
 
   /*
    * Los turnos que no cruzan la medianoche
-   * pertenecen a la fecha actual.
+   * utilizan la fecha actual.
    */
   if (!_esTurnoNocturno(turno)) {
     return hoy;
@@ -376,12 +416,11 @@ function _fechaOperativaTurno(
     ahora.getMinutes();
 
   const minutosFin =
-    horaAMinutos(turno.fin);
+    horaAMinutosSegura(turno.fin);
 
   /*
-   * Seis horas adicionales.
-   * Si el turno no tiene la propiedad guardada,
-   * utiliza 360 minutos como valor predeterminado.
+   * Seis horas adicionales para poder registrar
+   * una salida real después del horario normal.
    */
   const toleranciaSalidaExtra =
     Number(turno.toleranciaSalidaExtra) ||
@@ -392,14 +431,14 @@ function _fechaOperativaTurno(
     toleranciaSalidaExtra;
 
   /*
-   * Ejemplo T03:
+   * Ejemplo para Turno 3:
    *
-   * Salida normal: 06:00
-   * Plazo extra:   06 horas
-   * Límite:        12:00
+   * Salida programada: 06:00
+   * Plazo adicional:   06 horas
+   * Límite final:      12:00
    *
-   * Hasta las 12:00 continúa perteneciendo
-   * al Turno 3 iniciado el día anterior.
+   * Hasta las 12:00, la marcación continúa
+   * perteneciendo al turno del día anterior.
    */
   if (minutosActuales <= limiteSalidaReal) {
     return _sumarDiasISO(
@@ -409,6 +448,85 @@ function _fechaOperativaTurno(
   }
 
   return hoy;
+}
+
+/*
+ * Calcula la fecha y hora exacta en la que termina
+ * el plazo adicional para marcar una salida real.
+ *
+ * Funciona para T01, T02 y T03.
+ */
+function _fechaHoraLimiteSalida(
+  registro,
+  turno
+) {
+  if (
+    !registro?.fecha ||
+    !turno?.inicio ||
+    !turno?.fin
+  ) {
+    return null;
+  }
+
+  /*
+   * Separa la fecha operativa:
+   * 2026-10-07
+   */
+  const [anio, mes, dia] =
+    String(registro.fecha)
+      .split('-')
+      .map(Number);
+
+  /*
+   * Separa la hora final:
+   * 14:00, 22:00 o 06:00.
+   */
+  const [horaFin, minutoFin] =
+    String(turno.fin)
+      .split(':')
+      .map(Number);
+
+  /*
+   * Construye la fecha final programada.
+   */
+  const fechaLimite = new Date(
+    anio,
+    mes - 1,
+    dia,
+    horaFin,
+    minutoFin,
+    0,
+    0
+  );
+
+  /*
+   * Si el turno termina al día siguiente,
+   * suma un día.
+   *
+   * Esto se aplica al Turno 3.
+   */
+  if (_esTurnoNocturno(turno)) {
+    fechaLimite.setDate(
+      fechaLimite.getDate() + 1
+    );
+  }
+
+  /*
+   * Obtiene las seis horas adicionales.
+   */
+  const toleranciaSalidaExtra =
+    Number(turno.toleranciaSalidaExtra) ||
+    360;
+
+  /*
+   * Suma las seis horas a la salida programada.
+   */
+  fechaLimite.setMinutes(
+    fechaLimite.getMinutes() +
+    toleranciaSalidaExtra
+  );
+
+  return fechaLimite;
 }
 
 function _estaEnVentanaEntrada(turno, ahora = new Date()) {

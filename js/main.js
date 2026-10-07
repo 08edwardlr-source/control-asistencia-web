@@ -2145,9 +2145,12 @@ const Attendance = {
   ocultarListaTrasCierre: false,
   _timeoutRegreso: null,
   DELAY_AUTO_REGRESO: 1600,
-  _registrosEnCurso: new Set(),
+  
+// Protección individual contra marcaciones repetidas
+_registrosEnCurso: new Set(),
 _ultimosRegistros: new Map(),
-BLOQUEO_DOBLE_CLIC_MS: 4000,
+
+TIEMPO_BLOQUEO_PERSONA_MS: 15000,
 
   /* ---------- Reloj en tiempo real ---------- */
 
@@ -2255,35 +2258,58 @@ if (!turno) {
   return;
 }
 
-const claveBloqueo =
-  `${trabajador.dni}:${turno.id}`;
+/*
+ * La protección utiliza únicamente el DNI.
+ * Por eso solamente se bloquea temporalmente a la misma persona.
+ * Los demás trabajadores pueden continuar registrándose.
+ */
+const claveBloqueo = String(trabajador.dni).trim();
+
+const ahoraBloqueo = Date.now();
 
 const ultimaMarca =
-  this._ultimosRegistros.get(
-    claveBloqueo
-  ) || 0;
+  this._ultimosRegistros.get(claveBloqueo) || 0;
 
-const registroBloqueado =
-  this._registrosEnCurso.has(
-    claveBloqueo
-  );
+const registroEnProceso =
+  this._registrosEnCurso.has(claveBloqueo);
 
-const marcadoReciente =
-  Date.now() - ultimaMarca <
-  this.BLOQUEO_DOBLE_CLIC_MS;
+const tiempoTranscurrido =
+  ahoraBloqueo - ultimaMarca;
 
-if (registroBloqueado || marcadoReciente) {
+const tiempoRestante =
+  this.TIEMPO_BLOQUEO_PERSONA_MS -
+  tiempoTranscurrido;
+
+/*
+ * Evita que un segundo escaneo accidental convierta
+ * inmediatamente una entrada en salida.
+ */
+if (registroEnProceso) {
   UI.toast(
-    'Registro en proceso. Evita presionar o escanear dos veces',
+    `⏳ El registro de ${trabajador.nombres} está siendo procesado`,
     'alerta'
   );
 
   return;
 }
 
-this._registrosEnCurso.add(
-  claveBloqueo
-);
+if (tiempoRestante > 0) {
+  const segundosRestantes = Math.ceil(
+    tiempoRestante / 1000
+  );
+
+  UI.toast(
+    `✅ ${trabajador.nombres} ya fue registrado. Espera ${segundosRestantes} segundos para volver a marcar.`,
+    'alerta'
+  );
+
+  return;
+}
+
+/*
+ * Solamente este DNI queda bloqueado mientras se procesa.
+ */
+this._registrosEnCurso.add(claveBloqueo);
 
     this.metodoActual = metodo;
 
@@ -2341,13 +2367,46 @@ this._registrosEnCurso.add(
         'error'
       );
     } finally {
-      // Esta limpieza se ejecuta incluso si Supabase o la interfaz fallan.
-      this._registrosEnCurso.delete(claveBloqueo);
+  /*
+   * Libera el procesamiento, pero conserva durante
+   * 15 segundos la hora de la última marcación.
+   */
+  this._registrosEnCurso.delete(claveBloqueo);
 
-      this._ultimosRegistros.set(
-        claveBloqueo,
-        Date.now()
+  this._ultimosRegistros.set(
+    claveBloqueo,
+    Date.now()
+  );
+
+  UI.cerrarTodosLosModales();
+
+  if (typeof Workers !== 'undefined') {
+    try {
+      Workers.volverABuscar();
+    } catch (errorRestaurando) {
+      console.error(
+        'Error restaurando la pantalla de asistencia:',
+        errorRestaurando
       );
+
+      document
+        .getElementById('panel-busqueda')
+        ?.classList.remove('oculto');
+
+      document
+        .getElementById('panel-scanner')
+        ?.classList.add('oculto');
+
+      document
+        .getElementById('panel-ficha')
+        ?.classList.add('oculto');
+
+      document
+        .getElementById('panel-no-encontrado')
+        ?.classList.add('oculto');
+    }
+  }
+}
 
       // Evita que una capa oscura de un modal bloquee la siguiente marca.
       UI.cerrarTodosLosModales();

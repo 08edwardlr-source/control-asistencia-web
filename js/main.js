@@ -351,11 +351,63 @@ function _esTurnoNocturno(turno) {
 
 // El turno nocturno pertenece al día en que comenzó. Entre medianoche y su
 // hora de fin, cualquier entrada/salida se asocia con la fecha anterior.
-function _fechaOperativaTurno(turno, ahora = new Date()) {
+/*
+ * Calcula la fecha operativa del turno.
+ *
+ * Para los turnos nocturnos, la madrugada y el plazo
+ * adicional pertenecen al día en que comenzó el turno.
+ */
+function _fechaOperativaTurno(
+  turno,
+  ahora = new Date()
+) {
   const hoy = _fechaLocalISO(ahora);
-  if (_esTurnoNocturno(turno) && (ahora.getHours() * 60 + ahora.getMinutes()) <= horaAMinutos(turno.fin)) {
-    return _sumarDiasISO(hoy, -1);
+
+  /*
+   * Los turnos que no cruzan la medianoche
+   * pertenecen a la fecha actual.
+   */
+  if (!_esTurnoNocturno(turno)) {
+    return hoy;
   }
+
+  const minutosActuales =
+    ahora.getHours() * 60 +
+    ahora.getMinutes();
+
+  const minutosFin =
+    horaAMinutos(turno.fin);
+
+  /*
+   * Seis horas adicionales.
+   * Si el turno no tiene la propiedad guardada,
+   * utiliza 360 minutos como valor predeterminado.
+   */
+  const toleranciaSalidaExtra =
+    Number(turno.toleranciaSalidaExtra) ||
+    360;
+
+  const limiteSalidaReal =
+    minutosFin +
+    toleranciaSalidaExtra;
+
+  /*
+   * Ejemplo T03:
+   *
+   * Salida normal: 06:00
+   * Plazo extra:   06 horas
+   * Límite:        12:00
+   *
+   * Hasta las 12:00 continúa perteneciendo
+   * al Turno 3 iniciado el día anterior.
+   */
+  if (minutosActuales <= limiteSalidaReal) {
+    return _sumarDiasISO(
+      hoy,
+      -1
+    );
+  }
+
   return hoy;
 }
 

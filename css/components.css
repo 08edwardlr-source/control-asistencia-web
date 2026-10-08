@@ -2832,3 +2832,29 @@ table {
     gap: 3px;
   }
 }
+
+/* =========================================================
+   POSICIÓN DEL BOTÓN NUEVO TRABAJADOR
+   Evita que atraviese la lista de trabajadores
+   ========================================================= */
+
+#fab-nuevo-trabajador {
+  position: fixed !important;
+  right: 10px !important;
+  left: auto !important;
+  bottom: 24px !important;
+  transform: none !important;
+
+  width: 48px !important;
+  height: 48px !important;
+
+  z-index: 30 !important;
+}
+
+/* En celulares se coloca encima de la navegación inferior */
+@media (max-width: 768px) {
+  #fab-nuevo-trabajador {
+    right: 12px !important;
+    bottom: calc(var(--nav-alto) + 12px) !important;
+  }
+}

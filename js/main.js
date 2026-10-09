@@ -786,7 +786,8 @@ async init() {
       _escribir(DB_KEYS.ASISTENCIAS, []);
     } else {
       await this._migrarMetodoAsistencias();
-      await this._migrarEstadosAsistencias();
+await this._migrarEstadosAsistencias();
+await this._migrarJornadasFinalizadasPorSalida();
     }
     if (_leer(DB_KEYS.PROGRAMACIONES, null) === null) {
       _escribir(DB_KEYS.PROGRAMACIONES, []);
@@ -844,6 +845,68 @@ async init() {
     if (cambiado) _escribir(DB_KEYS.ASISTENCIAS, registros);
   },
 
+  /*
+ * Convierte en finalizados los registros antiguos
+ * que ya tienen una salida, pero que dependían del
+ * botón Finalizar turno para aparecer en Historial.
+ */
+async _migrarJornadasFinalizadasPorSalida() {
+  const claveMigracion =
+    'asistencia_finalizacion_individual_v1';
+
+  if (
+    _leer(
+      claveMigracion,
+      false
+    )
+  ) {
+    return;
+  }
+
+  const registros =
+    await this.obtenerAsistencias();
+
+  let huboCambios =
+    false;
+
+  registros.forEach(registro => {
+    if (
+      !registro.esDemo &&
+      registro.horaEntrada &&
+      registro.horaSalida &&
+      !registro.finalizado
+    ) {
+      registro.finalizado =
+        true;
+
+      registro.finalizadoEn =
+        registro.finalizadoEn ||
+        registro._remotoActualizadoEn ||
+        registro._modificadoEn ||
+        new Date().toISOString();
+
+      registro.tipoFinalizacion =
+        registro.cierreAutomatico
+          ? 'CIERRE AUTOMÁTICO'
+          : 'SALIDA REGISTRADA';
+
+      huboCambios =
+        true;
+    }
+  });
+
+  if (huboCambios) {
+    _escribir(
+      DB_KEYS.ASISTENCIAS,
+      registros
+    );
+  }
+
+  _escribir(
+    claveMigracion,
+    true
+  );
+},
   // Separa la condición de entrada y de salida sin borrar registros antiguos.
   async _migrarEstadosAsistencias() {
     const registros = await this.obtenerAsistencias();
@@ -1337,12 +1400,16 @@ if (jornadaPendiente) {
     );
   }
 
-  const jornadasPersona = registros.filter(registro =>
-    registro.dni === dni &&
-    registro.fecha === fechaJornada &&
-    registro.turnoId === turnoId &&
-    !registro.finalizado
-  );
+  /*
+ * Cuenta todas las jornadas de la persona en esa fecha y turno,
+ * incluyendo las que ya pasaron al historial.
+ */
+const jornadasPersona = registros.filter(registro =>
+  !registro.esDemo &&
+  String(registro.dni) === String(dni) &&
+  registro.fecha === fechaJornada &&
+  registro.turnoId === turnoId
+);
 
   const jornadaAbierta = jornadasPersona.find(
     registro => !registro.horaSalida
@@ -1406,48 +1473,151 @@ if (jornadaPendiente) {
   return nuevo;
 },
 
-  async registrarSalida(registroId, metodo = 'DNI') {
-    _exigirPermisoEdicion();
-    const registros = await this.obtenerAsistencias();
-    const idx = registros.findIndex(r => r.id === registroId);
-    if (idx === -1) throw new Error('Registro no encontrado');
+async registrarSalida(registroId, metodo = 'DNI') {
+  _exigirPermisoEdicion();
 
-    const registro = registros[idx];
-    const ahora = new Date();
-    const horaSalida = ahora.toTimeString().slice(0, 8);
-    const turnos = await this.obtenerTurnos();
-    const turno = turnos.find(t => t.id === registro.turnoId);
-    const supervisor = await this.obtenerPerfilSupervisor();
+  const registros =
+    await this.obtenerAsistencias();
 
-    registro.horaSalida = horaSalida;
-    registro.metodoSalida = metodo;
-registro.horasTrabajadas = _calcularHoras(
-  registro.horaEntrada,
-  horaSalida
-);
+  const idx =
+    registros.findIndex(
+      registro =>
+        registro.id === registroId
+    );
 
-// La primera salida corresponde al descanso o intervalo.
-// No se considera salida anticipada.
-if (registro.numeroJornada === 1) {
-  registro.estadoSalida = 'SALIDA INTERMEDIA';
-  registro.minutosSalidaAnticipada = 0;
-} else {
-  registro.estadoSalida = _clasificarSalida(
-    registro,
-    turno
+  if (idx === -1) {
+    throw new Error(
+      'Registro no encontrado'
+    );
+  }
+
+  const registro =
+    registros[idx];
+
+  /*
+   * Evita registrar dos salidas en la misma jornada.
+   */
+  if (registro.horaSalida) {
+    throw new Error(
+      'Esta jornada ya tiene una salida registrada'
+    );
+  }
+
+  const ahora =
+    new Date();
+
+  const horaSalida =
+    ahora
+      .toTimeString()
+      .slice(0, 8);
+
+  const turnos =
+    await this.obtenerTurnos();
+
+  const turno =
+    turnos.find(
+      item =>
+        item.id ===
+        registro.turnoId
+    );
+
+  if (!turno) {
+    throw new Error(
+      'No se encontró el turno del registro'
+    );
+  }
+
+  const supervisor =
+    await this.obtenerPerfilSupervisor();
+
+  registro.horaSalida =
+    horaSalida;
+
+  registro.metodoSalida =
+    metodo;
+
+  registro.horasTrabajadas =
+    _calcularHoras(
+      registro.horaEntrada,
+      horaSalida
+    );
+
+  /*
+   * La salida de la primera jornada se considera
+   * una salida intermedia porque todavía puede
+   * realizar una segunda jornada.
+   */
+  if (
+    Number(
+      registro.numeroJornada
+    ) === 1
+  ) {
+    registro.estadoSalida =
+      'SALIDA INTERMEDIA';
+
+    registro.minutosSalidaAnticipada =
+      0;
+  } else {
+    registro.estadoSalida =
+      _clasificarSalida(
+        registro,
+        turno
+      );
+
+    registro.minutosSalidaAnticipada =
+      _minutosSalidaAnticipada(
+        registro,
+        turno
+      );
+  }
+
+  registro.supervisorSalida =
+    supervisor
+      ? { ...supervisor }
+      : null;
+
+  registro.estadoEntrada =
+    registro.estadoEntrada ||
+    (
+      registro.estado ===
+      'TARDANZA'
+        ? 'TARDANZA'
+        : 'PUNTUAL'
+    );
+
+  registro.estado =
+    registro.estadoEntrada ===
+    'TARDANZA'
+      ? 'TARDANZA'
+      : 'PRESENTE';
+
+  /*
+   * NUEVO:
+   * La jornada pasa inmediatamente al historial
+   * cuando la persona marca su salida.
+   */
+  registro.finalizado = true;
+
+  registro.finalizadoEn =
+    ahora.toISOString();
+
+  registro.tipoFinalizacion =
+    'SALIDA REGISTRADA';
+
+  registros[idx] =
+    registro;
+
+  /*
+   * Guarda en la memoria local y programa
+   * la sincronización con Supabase.
+   */
+  _escribir(
+    DB_KEYS.ASISTENCIAS,
+    registros
   );
 
-  registro.minutosSalidaAnticipada =
-    _minutosSalidaAnticipada(registro, turno);
-}
-    registro.supervisorSalida = supervisor ? { ...supervisor } : null;
-    registro.estadoEntrada = registro.estadoEntrada || (registro.estado === 'TARDANZA' ? 'TARDANZA' : 'PUNTUAL');
-    registro.estado = registro.estadoEntrada === 'TARDANZA' ? 'TARDANZA' : 'PRESENTE';
-
-    registros[idx] = registro;
-    _escribir(DB_KEYS.ASISTENCIAS, registros);
-    return registro;
-  },
+  return registro;
+},
 
     // Cierra una jornada olvidada usando la hora final configurada del turno.
   // Solo se utiliza cuando pertenece a un día operativo anterior.
@@ -1532,11 +1702,23 @@ if (registro.numeroJornada === 1) {
       );
 
     registro.estado =
-      registro.estadoEntrada === 'TARDANZA'
-        ? 'TARDANZA'
-        : 'PRESENTE';
+  registro.estadoEntrada === 'TARDANZA'
+    ? 'TARDANZA'
+    : 'PRESENTE';
 
-    registros[idx] = registro;
+/*
+ * La jornada olvidada también pasa
+ * automáticamente al historial.
+ */
+registro.finalizado = true;
+
+registro.finalizadoEn =
+  new Date().toISOString();
+
+registro.tipoFinalizacion =
+  'CIERRE AUTOMÁTICO';
+
+registros[idx] = registro;
 
     _escribir(
       DB_KEYS.ASISTENCIAS,

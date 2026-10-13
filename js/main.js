@@ -5860,9 +5860,78 @@ const App = {
     this.cerrarModalTurnos();
   },
 
-  cerrarSesion() {
-    Auth.cerrarSesion();
-  },
+  async cerrarSesion() {
+  if (this._cerrandoSesion) {
+    return;
+  }
+
+  const rolActual = String(
+    Auth.usuarioActual?.rolAlmacen || ''
+  ).toLowerCase();
+
+  const esOperador =
+    rolActual === 'operador';
+
+  /*
+   * Los administradores y supervisores
+   * pueden cerrar sesión normalmente.
+   */
+  if (!esOperador) {
+    await Auth.cerrarSesion();
+    return;
+  }
+
+  /*
+   * La cuenta operadora debe confirmar
+   * su contraseña antes de salir.
+   */
+  const clave = await _solicitarClaveOculta(
+    'Ingresa la contraseña de la cuenta operadora para cerrar la sesión.'
+  );
+
+  if (clave === null) {
+    return;
+  }
+
+  if (!String(clave).trim()) {
+    UI.toast(
+      'Debes ingresar la contraseña.',
+      'alerta'
+    );
+    return;
+  }
+
+  this._cerrandoSesion = true;
+
+  try {
+    const claveCorrecta =
+      await Auth.validarClaveActual(clave);
+
+    if (!claveCorrecta) {
+      UI.toast(
+        'La contraseña ingresada es incorrecta.',
+        'alerta'
+      );
+      return;
+    }
+
+    await Auth.cerrarSesion();
+
+  } catch (error) {
+    console.error(
+      'No se pudo validar el cierre de sesión:',
+      error
+    );
+
+    UI.toast(
+      'No se pudo validar la contraseña. Revisa la conexión a internet.',
+      'alerta'
+    );
+
+  } finally {
+    this._cerrandoSesion = false;
+  }
+},
 
   async descargarRespaldo() {
     const trabajadores = await DB.obtenerTrabajadores();

@@ -34,7 +34,15 @@ clavesSincronizadas: () => [
   DB_KEYS.PROGRAMACIONES
 ],
   clavesGestionadas: () => [...Cloud.clavesSincronizadas(), DB_KEYS.ASISTENCIAS],
-  puedeEscribirAlmacen: () => ['administrador','supervisor'].includes(Cloud.rolAlmacen),
+ puedeEscribirAlmacen: () =>
+  ['administrador', 'supervisor'].includes(
+    String(Cloud.rolAlmacen || '').toLowerCase()
+  ),
+
+puedeRegistrarAsistencia: () =>
+  ['administrador', 'supervisor', 'operador'].includes(
+    String(Cloud.rolAlmacen || '').toLowerCase()
+  ),
 
   init() {
     if (!window.supabase?.createClient) throw new Error('No se pudo cargar la conexión con Supabase. Revisa tu conexión a internet.');
@@ -245,7 +253,16 @@ async guardarPerfilSupervisorUsuario(perfil) {
       this.guardarCacheReciente(this.asistenciasMemoria);
       localStorage.setItem('asistencia_supabase_alcance_inicial', alcanceActual);
 
-      if (this.puedeEscribirAlmacen() && (requiereSincronizar || (!remotos.length && this.asistenciasMemoria.length))) {
+      if (
+  this.puedeRegistrarAsistencia() &&
+  (
+    requiereSincronizar ||
+    (
+      !remotos.length &&
+      this.asistenciasMemoria.length
+    )
+  )
+) {
         await this.sincronizarAsistencias(this.asistenciasMemoria, [...this.asistenciasEliminadasPendientes]);
         this.asistenciasEliminadasPendientes.clear();
         this.guardarEliminadosLocales();
@@ -270,12 +287,47 @@ async guardarPerfilSupervisorUsuario(perfil) {
   },
 
   programar(clave, valor) {
-    if (!this.client || !this.usuarioId || !this.almacenId || !this.puedeEscribirAlmacen() || this.suspendido || !this.clavesGestionadas().includes(clave)) return;
-    this.pendientes.set(clave, valor);
-    this.actualizarEstadoSync(navigator.onLine ? 'sincronizando' : 'sin-conexion');
-    clearTimeout(this.temporizadores.get(clave));
-    this.temporizadores.set(clave, setTimeout(() => this.sincronizarPendiente(clave), 450));
-  },
+  if (
+    !this.client ||
+    !this.usuarioId ||
+    !this.almacenId ||
+    this.suspendido ||
+    !this.clavesGestionadas().includes(clave)
+  ) {
+    return;
+  }
+
+  const esAsistencia =
+    clave === DB_KEYS.ASISTENCIAS;
+
+  const tienePermiso = esAsistencia
+    ? this.puedeRegistrarAsistencia()
+    : this.puedeEscribirAlmacen();
+
+  if (!tienePermiso) {
+    return;
+  }
+
+  this.pendientes.set(clave, valor);
+
+  this.actualizarEstadoSync(
+    navigator.onLine
+      ? 'sincronizando'
+      : 'sin-conexion'
+  );
+
+  clearTimeout(
+    this.temporizadores.get(clave)
+  );
+
+  this.temporizadores.set(
+    clave,
+    setTimeout(
+      () => this.sincronizarPendiente(clave),
+      450
+    )
+  );
+},
 
   async sincronizarPendiente(clave) {
     if (!this.pendientes.has(clave) || !this.usuarioId) return;
@@ -302,11 +354,32 @@ async guardarPerfilSupervisorUsuario(perfil) {
   },
 
   async sincronizarPendientes() {
-    if (!this.usuarioId || !this.almacenId || !this.puedeEscribirAlmacen() || !navigator.onLine) return;
-    this.actualizarEstadoSync('sincronizando');
-    for (const clave of [...this.pendientes.keys()]) await this.sincronizarPendiente(clave);
-    if (!this.pendientes.size) this.actualizarEstadoSync('guardado');
-  },
+  if (
+    !this.usuarioId ||
+    !this.almacenId ||
+    !navigator.onLine
+  ) {
+    return;
+  }
+
+  const tienePermiso =
+    this.puedeEscribirAlmacen() ||
+    this.puedeRegistrarAsistencia();
+
+  if (!tienePermiso) {
+    return;
+  }
+
+  this.actualizarEstadoSync('sincronizando');
+
+  for (const clave of [...this.pendientes.keys()]) {
+    await this.sincronizarPendiente(clave);
+  }
+
+  if (!this.pendientes.size) {
+    this.actualizarEstadoSync('guardado');
+  }
+},
 
   horasAMinutos(valor) {
     if (valor === null || valor === undefined || valor === '') return null;
@@ -415,7 +488,14 @@ _remotoActualizadoEn: fila.actualizado_en || null
   },
 
   async sincronizarAsistencias(registros = null, eliminados = [], soloIds = null) {
-    if (!this.client || !this.usuarioId || !this.almacenId || !this.puedeEscribirAlmacen()) return;
+    if (
+  !this.client ||
+  !this.usuarioId ||
+  !this.almacenId ||
+  !this.puedeRegistrarAsistencia()
+) {
+  return;
+}
     const listaCompleta = Array.isArray(registros) ? registros : this.asistenciasMemoria;
     const idsPermitidos = Array.isArray(soloIds) && soloIds.length ? new Set(soloIds.map(String)) : null;
     const lista = idsPermitidos ? listaCompleta.filter(r => idsPermitidos.has(String(r.id))) : listaCompleta;
@@ -425,11 +505,38 @@ _remotoActualizadoEn: fila.actualizado_en || null
       const { error } = await this.client.from('asistencias_almacen').upsert(filas.slice(i, i + 500), { onConflict:'almacen_id,id' });
       if (error) throw error;
     }
-    const idsEliminados = [...new Set((eliminados || []).map(String))];
-    for (let i = 0; i < idsEliminados.length; i += 200) {
-      const { error } = await this.client.from('asistencias_almacen').delete().eq('almacen_id', this.almacenId).in('id', idsEliminados.slice(i, i + 200));
-      if (error) throw error;
+    const idsEliminados = [
+  ...new Set(
+    (eliminados || []).map(String)
+  )
+];
+
+/*
+ * El operador puede registrar entradas y salidas,
+ * pero no puede eliminar asistencias.
+ */
+if (this.puedeEscribirAlmacen()) {
+  for (
+    let i = 0;
+    i < idsEliminados.length;
+    i += 200
+  ) {
+    const lote = idsEliminados.slice(
+      i,
+      i + 200
+    );
+
+    const { error } = await this.client
+      .from('asistencias_almacen')
+      .delete()
+      .eq('almacen_id', this.almacenId)
+      .in('id', lote);
+
+    if (error) {
+      throw error;
     }
+  }
+}
     const sincronizados = new Set(lista.map(r => String(r.id)));
     this.asistenciasMemoria.forEach(registro => {
       if (!sincronizados.has(String(registro.id))) return;

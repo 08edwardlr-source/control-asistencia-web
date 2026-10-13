@@ -2858,3 +2858,32 @@ table {
     bottom: calc(var(--nav-alto) + 12px) !important;
   }
 }
+
+/* =====================================================
+   MODO OPERADOR
+   Conserva la interfaz normal de Asistencia
+   ===================================================== */
+
+/* Ocultar los dos botones solicitados */
+body.modo-operador #btn-registrar-nuevo-directo,
+body.modo-operador #btn-finalizar-turno {
+  display: none !important;
+}
+
+/* Mostrar solamente Asistencia en el menú */
+body.modo-operador
+.menu-lateral-item[data-tab]:not([data-tab="asistencia"]) {
+  display: none !important;
+}
+
+/* Impedir que otra vista administrativa sea visible */
+body.modo-operador
+.vista:not(#vista-asistencia) {
+  display: none !important;
+}
+
+/* Mantener disponible el cierre de sesión */
+body.modo-operador
+.menu-lateral-sesion {
+  display: block !important;
+}

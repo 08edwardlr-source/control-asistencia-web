@@ -79,11 +79,48 @@ const Auth = {
       } else throw error;
     }
     const permisosPerfil = perfil.permisos || this.permisosPredeterminados(false);
-    const permisos = asignacion.rol === 'administrador'
-      ? this.permisosPredeterminados(true)
-      : asignacion.rol === 'supervisor'
-        ? { ...permisosPerfil, editar:true, administrar:false, tabs:[...new Set([...(permisosPerfil.tabs || []),'asistencia','historial','programacion','trabajadores','reportes','perfil'])] }
-        : { ...permisosPerfil, editar:false, administrar:false };
+    const rolAsignado = String(
+  asignacion.rol || ''
+).toLowerCase();
+
+let permisos;
+
+if (rolAsignado === 'administrador') {
+  permisos = this.permisosPredeterminados(true);
+
+} else if (rolAsignado === 'supervisor') {
+  permisos = {
+    ...permisosPerfil,
+    editar: true,
+    administrar: false,
+    registrarAsistencia: true,
+    tabs: [
+      'asistencia',
+      'historial',
+      'programacion',
+      'trabajadores',
+      'reportes',
+      'perfil'
+    ]
+  };
+
+} else if (rolAsignado === 'operador') {
+  permisos = {
+    editar: false,
+    administrar: false,
+    registrarAsistencia: true,
+    tabs: ['asistencia']
+  };
+
+} else {
+  permisos = {
+    ...permisosPerfil,
+    editar: false,
+    administrar: false,
+    registrarAsistencia: false,
+    tabs: []
+  };
+}
     const usuario = {
   id: usuarioSupabase.id,
 
@@ -110,7 +147,20 @@ const Auth = {
   }
 };
     this.usuarioActual = usuario;
-    localStorage.setItem(this.CLAVE_USUARIOS, JSON.stringify([usuario]));
+
+const esOperador =
+  String(usuario.rolAlmacen || '').toLowerCase() ===
+  'operador';
+
+document.body.classList.toggle(
+  'modo-operador',
+  esOperador
+);
+
+localStorage.setItem(
+  this.CLAVE_USUARIOS,
+  JSON.stringify([usuario])
+);
     await Cloud.cargarEstado(usuarioSupabase.id, asignacion);
     document.body.classList.remove('auth-bloqueado');
     document.getElementById('pantalla-login')?.classList.add('oculto');
@@ -237,7 +287,8 @@ const Auth = {
     await Cloud.cerrarSesion();
     if (typeof Scanner !== 'undefined') Scanner.cerrar();
     if (typeof App !== 'undefined') App.cerrarMenu();
-    this.usuarioActual=null;
+   this.usuarioActual = null;
+document.body.classList.remove('modo-operador');
     if (document.querySelector('.app')) window.location.replace('login.html');
     else this.mostrarAcceso();
   },

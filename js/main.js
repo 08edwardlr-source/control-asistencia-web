@@ -3231,7 +3231,8 @@ if (jornadasCompletas.length >= 2) {
   /* ---------- Lista en vivo de registros del día ---------- */
 
   async renderizarRegistrosHoy() {
-  const contenedor = document.getElementById('lista-registros-hoy');
+  const contenedor =
+    document.getElementById('lista-registros-hoy');
 
   const contadorIngresaron =
     document.getElementById('contador-ingresaron');
@@ -3244,117 +3245,529 @@ if (jornadasCompletas.length >= 2) {
 
   if (!contenedor) return;
 
-  const actualizarContadores = (lista = []) => {
-    const ingresos = lista.filter(registro =>
-      Boolean(registro.horaEntrada)
-    ).length;
-
-    const salidas = lista.filter(registro =>
-      Boolean(registro.horaSalida)
-    ).length;
-
-    const pendientes = Math.max(ingresos - salidas, 0);
-
+  const escribirContadores = (
+    ingresos,
+    salidas,
+    pendientes
+  ) => {
     if (contadorIngresaron) {
-      contadorIngresaron.textContent = ingresos;
+      contadorIngresaron.textContent =
+        String(ingresos);
     }
 
     if (contadorSalieron) {
-      contadorSalieron.textContent = salidas;
+      contadorSalieron.textContent =
+        String(salidas);
     }
 
     if (contadorPorSalir) {
-      contadorPorSalir.textContent = pendientes;
+      contadorPorSalir.textContent =
+        String(pendientes);
     }
   };
-    if (this.ocultarListaTrasCierre) {
-  actualizarContadores([]);
+
+  /*
+   * No muestra ceros falsos mientras los registros
+   * todavía se están recuperando desde Supabase.
+   */
+  escribirContadores('…', '…', '…');
 
   contenedor.innerHTML = `
     <div class="estado-vacio">
-      Turno finalizado. No hay registros pendientes.
+      Cargando registros de hoy…
     </div>
   `;
 
-  return;
-}
+  try {
+    const turnos =
+      await DB.obtenerTurnos();
 
-    const hoy = _hoyISO();
-    const turnos = await DB.obtenerTurnos();
-    const turnoPorId = {};
-    turnos.forEach(t => { turnoPorId[t.id] = t; });
-    const registros = (await DB.obtenerAsistencias())
-      .filter(r => {
-        if (r.esDemo) return false;
-        if (this.turnoSeleccionado && r.turnoId !== this.turnoSeleccionado) return false;
-        const esDeHoy = r.fecha === hoy;
-        // El turno nocturno pertenece a la fecha en la que comenzó. Después de
-        // medianoche debe seguir visible aunque ya tenga salida (incluida una
-        // salida anticipada) y desaparecer únicamente al finalizar el turno.
-        const esNocturnoDeAyer = _sumarDiasISO(r.fecha, 1) === hoy && _esTurnoNocturno(turnoPorId[r.turnoId]);
-        return !r.finalizado && (esDeHoy || esNocturnoDeAyer);
-      })
-      .sort((a, b) => (a.horaEntrada < b.horaEntrada ? 1 : -1));
+    const turnoPorId =
+      Object.fromEntries(
+        turnos.map(turno => [
+          String(turno.id),
+          turno
+        ])
+      );
 
-    actualizarContadores(registros);
-    
+    const asistencias =
+      await DB.obtenerAsistencias();
+
+    /*
+     * Obtiene todos los registros de la fecha operativa,
+     * incluyendo los que ya pasaron al historial.
+     */
+    const registros =
+      asistencias
+        .filter(registro => {
+          if (
+            !registro ||
+            registro.esDemo
+          ) {
+            return false;
+          }
+
+          /*
+           * Si se seleccionó un turno, solamente
+           * muestra los registros de ese turno.
+           */
+          if (
+            this.turnoSeleccionado &&
+            String(registro.turnoId) !==
+              String(this.turnoSeleccionado)
+          ) {
+            return false;
+          }
+
+          const turno =
+            turnoPorId[
+              String(registro.turnoId)
+            ] || null;
+
+          /*
+           * Para T1 y T2 será la fecha actual.
+           * Para T3 puede ser la fecha anterior
+           * porque cruza la medianoche.
+           */
+          const fechaOperativa =
+            turno
+              ? _fechaOperativaTurno(turno)
+              : _hoyISO();
+
+          /*
+           * No se revisa registro.finalizado.
+           *
+           * Un registro finalizado debe aparecer
+           * en el conteo del día aunque ya esté
+           * guardado en el historial.
+           */
+          return (
+            String(registro.fecha || '') ===
+            String(fechaOperativa)
+          );
+        })
+        .sort((a, b) => {
+          const fechaA =
+            `${a.fecha || ''} ` +
+            `${a.horaEntrada || '00:00:00'}`;
+
+          const fechaB =
+            `${b.fecha || ''} ` +
+            `${b.horaEntrada || '00:00:00'}`;
+
+          return fechaB.localeCompare(fechaA);
+        });
+
+    /*
+     * Cada registro representa una jornada.
+     * Si alguien trabaja dos turnos, tendrá
+     * dos entradas y dos salidas.
+     */
+    const ingresos =
+      registros.filter(registro =>
+        Boolean(registro.horaEntrada)
+      ).length;
+
+    const salidas =
+      registros.filter(registro =>
+        Boolean(registro.horaSalida)
+      ).length;
+
+    const pendientes =
+      registros.filter(registro =>
+        Boolean(registro.horaEntrada) &&
+        !registro.horaSalida
+      ).length;
+
+    escribirContadores(
+      ingresos,
+      salidas,
+      pendientes
+    );
+
+    /*
+     * Finalizar un turno no debe borrar ni colocar
+     * en cero el resumen de registros del día.
+     */
+    this.ocultarListaTrasCierre = false;
+
     if (registros.length === 0) {
-      contenedor.innerHTML = `<div class="estado-vacio">Todavía no hay registros hoy</div>`;
+      contenedor.innerHTML = `
+        <div class="estado-vacio">
+          Todavía no hay registros para la
+          fecha operativa actual
+        </div>
+      `;
+
       return;
     }
 
-    contenedor.innerHTML = registros.map(r => `
-      <div class="tarjeta-historial">
-        <div class="avatar-mini">${UI.iniciales(r.nombreCompleto.split(' ')[0], r.nombreCompleto.split(' ')[1] || '')}</div>
-        <div class="tarjeta-historial-info">
-          <div class="tarjeta-historial-nombre">${UI.escaparHtml(r.nombreCompleto)}</div>
-          <div class="tarjeta-historial-meta">DNI: ${UI.escaparHtml(r.dni)} · ${UI.escaparHtml(r.turnoNombre.replace('TURNO ', 'T'))}</div>
-          <div class="registro-movimientos">
-            <div class="registro-movimiento entrada ${(r.estadoEntrada === 'TARDANZA' || r.estado === 'TARDANZA') ? 'tardia' : ''}">
-              <div class="registro-movimiento-titulo">↘ Entrada</div>
-              <div class="registro-movimiento-hora">${r.horaEntrada.slice(0, 5)}</div>
-              <div class="registro-movimiento-estado">${r.estadoEntrada || (r.estado === 'TARDANZA' ? 'TARDANZA' : 'PUNTUAL')}</div>
-            </div>
-            <div class="registro-movimiento salida ${!r.horaSalida ? 'pendiente' : (r.estadoSalida === 'SALIDA ANTICIPADA' ? 'anticipada' : '')}">
-              <div class="registro-movimiento-titulo">↗ Salida</div>
-              <div class="registro-movimiento-hora">${r.horaSalida ? r.horaSalida.slice(0, 5) : '--:--'}</div>
-              <div class="registro-movimiento-estado">${r.estadoSalida || 'PENDIENTE'}</div>
-            </div>
-          </div>
-          ${r.horasTrabajadas ? `<div class="tarjeta-historial-horas">Total trabajado: <strong>${r.horasTrabajadas}</strong></div>` : ''}
-          <div class="tarjeta-historial-meta" style="margin-top:5px;">Entrada por: ${UI.escaparHtml(_nombreSupervisor(r.supervisorEntrada))}${r.horaSalida ? ` · Salida por: ${UI.escaparHtml(_nombreSupervisor(r.supervisorSalida))}` : ''}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;margin-right:22px;">
-          <span class="badge badge-${r.metodo === 'QR' ? 'azul' : 'naranja'}">${r.metodo === 'QR' ? '📷 QR' : '🔎 DNI'}</span>
-        </div>
-        <div class="registro-acciones">
-          <button type="button" class="btn-registro-menu" data-registro-menu="${r.id}" aria-label="Opciones del registro" aria-expanded="false">⋮</button>
-          <div class="registro-menu oculto" data-menu-registro="${r.id}">
-            <button type="button" data-editar-registro="${r.id}">✏️ Editar</button>
-            <button type="button" class="accion-eliminar" data-eliminar-registro="${r.id}">🗑️ Eliminar</button>
-          </div>
-        </div>
-      </div>
-    `).join('');
+    contenedor.innerHTML =
+      registros
+        .map(registro => {
+          const nombreCompleto =
+            String(
+              registro.nombreCompleto ||
+              'Trabajador sin nombre'
+            ).trim();
 
-    contenedor.querySelectorAll('[data-registro-menu]').forEach(boton => {
-      boton.addEventListener('click', (evento) => {
-        evento.stopPropagation();
-        const menu = contenedor.querySelector(`[data-menu-registro="${boton.dataset.registroMenu}"]`);
-        const abrir = menu.classList.contains('oculto');
-        contenedor.querySelectorAll('.registro-menu').forEach(m => m.classList.add('oculto'));
-        contenedor.querySelectorAll('[data-registro-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
-        menu.classList.toggle('oculto', !abrir);
-        boton.setAttribute('aria-expanded', String(abrir));
+          const partesNombre =
+            nombreCompleto.split(/\s+/);
+
+          const turnoNombre =
+            String(
+              registro.turnoNombre ||
+              registro.turnoId ||
+              'Sin turno'
+            ).replace(
+              'TURNO ',
+              'T'
+            );
+
+          const horaEntrada =
+            registro.horaEntrada
+              ? String(
+                  registro.horaEntrada
+                ).slice(0, 5)
+              : '--:--';
+
+          const horaSalida =
+            registro.horaSalida
+              ? String(
+                  registro.horaSalida
+                ).slice(0, 5)
+              : '--:--';
+
+          const entradaTardia =
+            registro.estadoEntrada ===
+              'TARDANZA' ||
+            registro.estado ===
+              'TARDANZA';
+
+          const claseSalida =
+            !registro.horaSalida
+              ? 'pendiente'
+              : registro.estadoSalida ===
+                  'SALIDA ANTICIPADA'
+                ? 'anticipada'
+                : '';
+
+          return `
+            <div class="tarjeta-historial">
+              <div class="avatar-mini">
+                ${UI.iniciales(
+                  partesNombre[0] || '',
+                  partesNombre[1] || ''
+                )}
+              </div>
+
+              <div class="tarjeta-historial-info">
+                <div class="tarjeta-historial-nombre">
+                  ${UI.escaparHtml(
+                    nombreCompleto
+                  )}
+                </div>
+
+                <div class="tarjeta-historial-meta">
+                  DNI:
+                  ${UI.escaparHtml(
+                    registro.dni || '—'
+                  )}
+                  ·
+                  ${UI.escaparHtml(
+                    turnoNombre
+                  )}
+                  · Jornada
+                  ${Number(
+                    registro.numeroJornada
+                  ) || 1}
+                </div>
+
+                <div class="registro-movimientos">
+                  <div
+                    class="registro-movimiento entrada ${
+                      entradaTardia
+                        ? 'tardia'
+                        : ''
+                    }">
+
+                    <div class="registro-movimiento-titulo">
+                      ↘ Entrada
+                    </div>
+
+                    <div class="registro-movimiento-hora">
+                      ${horaEntrada}
+                    </div>
+
+                    <div class="registro-movimiento-estado">
+                      ${UI.escaparHtml(
+                        registro.estadoEntrada ||
+                        (
+                          entradaTardia
+                            ? 'TARDANZA'
+                            : 'PUNTUAL'
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  <div
+                    class="registro-movimiento salida ${claseSalida}">
+
+                    <div class="registro-movimiento-titulo">
+                      ↗ Salida
+                    </div>
+
+                    <div class="registro-movimiento-hora">
+                      ${horaSalida}
+                    </div>
+
+                    <div class="registro-movimiento-estado">
+                      ${UI.escaparHtml(
+                        registro.estadoSalida ||
+                        'PENDIENTE'
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                ${
+                  registro.horasTrabajadas
+                    ? `
+                      <div class="tarjeta-historial-horas">
+                        Total trabajado:
+                        <strong>
+                          ${UI.escaparHtml(
+                            registro.horasTrabajadas
+                          )}
+                        </strong>
+                      </div>
+                    `
+                    : ''
+                }
+
+                <div
+                  class="tarjeta-historial-meta"
+                  style="margin-top:5px;">
+
+                  Entrada por:
+                  ${UI.escaparHtml(
+                    _nombreSupervisor(
+                      registro.supervisorEntrada
+                    )
+                  )}
+
+                  ${
+                    registro.horaSalida
+                      ? `
+                        · Salida por:
+                        ${UI.escaparHtml(
+                          _nombreSupervisor(
+                            registro.supervisorSalida
+                          )
+                        )}
+                      `
+                      : ''
+                  }
+                </div>
+              </div>
+
+              <div
+                style="
+                  display:flex;
+                  flex-direction:column;
+                  gap:4px;
+                  align-items:flex-end;
+                  margin-right:22px;
+                ">
+
+                <span
+                  class="badge badge-${
+                    registro.metodo === 'QR'
+                      ? 'azul'
+                      : 'naranja'
+                  }">
+
+                  ${
+                    registro.metodo === 'QR'
+                      ? '📷 QR'
+                      : '🔎 DNI'
+                  }
+                </span>
+              </div>
+
+              <div class="registro-acciones">
+                <button
+                  type="button"
+                  class="btn-registro-menu"
+                  data-registro-menu="${
+                    UI.escaparHtml(
+                      registro.id
+                    )
+                  }"
+                  aria-label="Opciones del registro"
+                  aria-expanded="false">
+                  ⋮
+                </button>
+
+                <div
+                  class="registro-menu oculto"
+                  data-menu-registro="${
+                    UI.escaparHtml(
+                      registro.id
+                    )
+                  }">
+
+                  <button
+                    type="button"
+                    data-editar-registro="${
+                      UI.escaparHtml(
+                        registro.id
+                      )
+                    }">
+                    ✏️ Editar
+                  </button>
+
+                  <button
+                    type="button"
+                    class="accion-eliminar"
+                    data-eliminar-registro="${
+                      UI.escaparHtml(
+                        registro.id
+                      )
+                    }">
+                    🗑️ Eliminar
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+    /*
+     * Eventos de los tres puntos.
+     */
+    contenedor
+      .querySelectorAll(
+        '[data-registro-menu]'
+      )
+      .forEach(boton => {
+        boton.addEventListener(
+          'click',
+          evento => {
+            evento.stopPropagation();
+
+            const id =
+              boton.dataset.registroMenu;
+
+            const menu =
+              [
+                ...contenedor
+                  .querySelectorAll(
+                    '[data-menu-registro]'
+                  )
+              ].find(elemento =>
+                elemento.dataset.menuRegistro ===
+                id
+              );
+
+            if (!menu) return;
+
+            const abrir =
+              menu.classList.contains(
+                'oculto'
+              );
+
+            contenedor
+              .querySelectorAll(
+                '.registro-menu'
+              )
+              .forEach(elemento => {
+                elemento.classList.add(
+                  'oculto'
+                );
+              });
+
+            contenedor
+              .querySelectorAll(
+                '[data-registro-menu]'
+              )
+              .forEach(elemento => {
+                elemento.setAttribute(
+                  'aria-expanded',
+                  'false'
+                );
+              });
+
+            menu.classList.toggle(
+              'oculto',
+              !abrir
+            );
+
+            boton.setAttribute(
+              'aria-expanded',
+              String(abrir)
+            );
+          }
+        );
       });
-    });
-    contenedor.querySelectorAll('[data-editar-registro]').forEach(boton => {
-      boton.addEventListener('click', () => this.abrirEditarRegistro(boton.dataset.editarRegistro));
-    });
-    contenedor.querySelectorAll('[data-eliminar-registro]').forEach(boton => {
-      boton.addEventListener('click', () => this.eliminarRegistro(boton.dataset.eliminarRegistro));
-    });
-  },
+
+    /*
+     * Eventos de editar registro.
+     */
+    contenedor
+      .querySelectorAll(
+        '[data-editar-registro]'
+      )
+      .forEach(boton => {
+        boton.addEventListener(
+          'click',
+          () => {
+            this.abrirEditarRegistro(
+              boton.dataset.editarRegistro
+            );
+          }
+        );
+      });
+
+    /*
+     * Eventos de eliminar registro.
+     */
+    contenedor
+      .querySelectorAll(
+        '[data-eliminar-registro]'
+      )
+      .forEach(boton => {
+        boton.addEventListener(
+          'click',
+          () => {
+            this.eliminarRegistro(
+              boton.dataset.eliminarRegistro
+            );
+          }
+        );
+      });
+  } catch (error) {
+    console.error(
+      'No se pudieron cargar los registros de hoy:',
+      error
+    );
+
+    escribirContadores(
+      '—',
+      '—',
+      '—'
+    );
+
+    contenedor.innerHTML = `
+      <div class="estado-vacio">
+        No se pudieron cargar los registros.
+        Revisa la conexión e inténtalo nuevamente.
+      </div>
+    `;
+  }
+},
 
   async abrirEditarRegistro(registroId) {
     const supervisorActivo = await DB.obtenerPerfilSupervisor();

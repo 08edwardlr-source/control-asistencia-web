@@ -1363,83 +1363,140 @@ async registrarEntrada({
 }) {
   _exigirPermisoEdicion();
 
-  const registros = await this.obtenerAsistencias();
-  const ahora = new Date();
-  const horaStr = ahora.toTimeString().slice(0, 8);
+  const registros =
+    await this.obtenerAsistencias();
 
-  const turnos = await this.obtenerTurnos();
-  const turno = turnos.find(t => t.id === turnoId);
+  const ahora =
+    new Date();
+
+  const horaStr =
+    ahora
+      .toTimeString()
+      .slice(0, 8);
+
+  const turnos =
+    await this.obtenerTurnos();
+
+  const turno =
+    turnos.find(
+      elemento =>
+        String(elemento.id) ===
+        String(turnoId)
+    );
 
   if (!turno) {
-    throw new Error('Turno no encontrado');
+    throw new Error(
+      'Turno no encontrado'
+    );
   }
 
-  const fechaJornada = _fechaOperativaTurno(turno, ahora);
-// No permite abrir un nuevo turno si el trabajador
-// todavía tiene una entrada pendiente en cualquier turno.
-const jornadaPendiente = registros.find(
-  registro =>
-    !registro.esDemo &&
-    registro.dni === dni &&
-    !registro.horaSalida &&
-    !registro.finalizado
-);
+  const fechaJornada =
+    _fechaOperativaTurno(
+      turno,
+      ahora
+    );
 
-if (jornadaPendiente) {
-  throw new Error(
-    `El trabajador tiene una jornada pendiente en ${
-      jornadaPendiente.turnoNombre ||
-      jornadaPendiente.turnoId ||
-      'otro turno'
-    }. Primero registra o corrige su salida.`
-  );
-}
-  if (await this.obtenerCierre(fechaJornada, turnoId)) {
+  /*
+   * No permite abrir otra entrada cuando
+   * la persona todavía tiene una pendiente.
+   */
+  const jornadaPendiente =
+    registros.find(registro =>
+      !registro.esDemo &&
+      String(registro.dni) ===
+        String(dni) &&
+      !registro.horaSalida &&
+      !registro.finalizado
+    );
+
+  if (jornadaPendiente) {
+    throw new Error(
+      `El trabajador tiene una jornada pendiente en ${
+        jornadaPendiente.turnoNombre ||
+        jornadaPendiente.turnoId ||
+        'otro turno'
+      }. Primero registra su salida.`
+    );
+  }
+
+  /*
+   * No permite nuevas entradas si ese turno
+   * ya fue cerrado administrativamente.
+   */
+  if (
+    await this.obtenerCierre(
+      fechaJornada,
+      turnoId
+    )
+  ) {
     throw new Error(
       'Este turno ya fue finalizado y no admite nuevos registros'
     );
   }
 
   /*
- * Cuenta todas las jornadas de la persona en esa fecha y turno,
- * incluyendo las que ya pasaron al historial.
- */
-const jornadasPersona = registros.filter(registro =>
-  !registro.esDemo &&
-  String(registro.dni) === String(dni) &&
-  registro.fecha === fechaJornada &&
-  registro.turnoId === turnoId
-);
+   * Cuenta todas las jornadas de la persona
+   * en la fecha operativa, no solamente las
+   * jornadas del turno seleccionado.
+   */
+  const jornadasPersona =
+    registros.filter(registro =>
+      !registro.esDemo &&
+      String(registro.dni) ===
+        String(dni) &&
+      String(registro.fecha) ===
+        String(fechaJornada)
+    );
 
-  const jornadaAbierta = jornadasPersona.find(
-    registro => !registro.horaSalida
-  );
+  /*
+   * Una persona no puede registrar dos veces
+   * el mismo turno durante la fecha operativa.
+   */
+  const turnoYaRegistrado =
+    jornadasPersona.find(registro =>
+      String(registro.turnoId) ===
+        String(turnoId)
+    );
 
-  if (jornadaAbierta) {
+  if (turnoYaRegistrado) {
     throw new Error(
-      'El trabajador todavía tiene una entrada sin salida'
+      `El trabajador ya tiene una jornada registrada en ${
+        turnoNombre || turnoId
+      }. Para doble turno selecciona un turno diferente.`
     );
   }
 
+  /*
+   * Máximo dos jornadas por fecha operativa.
+   */
   if (jornadasPersona.length >= 2) {
     throw new Error(
-      'El trabajador ya completó sus dos jornadas del día'
+      'El trabajador ya alcanzó el máximo de dos jornadas para esta fecha operativa'
     );
   }
 
-  const numeroJornada = jornadasPersona.length + 1;
+  const numeroJornada =
+    jornadasPersona.length + 1;
 
-  const supervisor = await this.obtenerPerfilSupervisor();
+  const supervisor =
+    await this.obtenerPerfilSupervisor();
 
-  const estadoEntrada = numeroJornada === 1
-    ? _clasificarEntrada(horaStr, turno)
-    : 'REINGRESO';
+  const estadoEntrada =
+    numeroJornada === 1
+      ? _clasificarEntrada(
+          horaStr,
+          turno
+        )
+      : 'REINGRESO';
 
   const nuevo = {
     id: _uuid(),
+
     dni,
     nombreCompleto,
+
     fecha: fechaJornada,
+
     turnoId,
     turnoNombre,
 
@@ -1457,9 +1514,10 @@ const jornadasPersona = registros.filter(registro =>
     estadoEntrada,
     estadoSalida: null,
 
-    supervisorEntrada: supervisor
-      ? { ...supervisor }
-      : null,
+    supervisorEntrada:
+      supervisor
+        ? { ...supervisor }
+        : null,
 
     supervisorSalida: null,
 
@@ -1468,7 +1526,11 @@ const jornadasPersona = registros.filter(registro =>
   };
 
   registros.unshift(nuevo);
-  _escribir(DB_KEYS.ASISTENCIAS, registros);
+
+  _escribir(
+    DB_KEYS.ASISTENCIAS,
+    registros
+  );
 
   return nuevo;
 },
@@ -2718,445 +2780,880 @@ TIEMPO_BLOQUEO_PERSONA_MS: 15000,
 
   /* ---------- Ficha del trabajador y registro automático ---------- */
 
-  async mostrarFichaTrabajador(trabajador, metodo = 'DNI') {
-    if (this._timeoutRegreso) {
-      clearTimeout(this._timeoutRegreso);
-      this._timeoutRegreso = null;
-    }
-    const turno = await this.obtenerTurnoActual();
+  async mostrarFichaTrabajador(
+  trabajador,
+  metodo = 'DNI'
+) {
+  if (this._timeoutRegreso) {
+    clearTimeout(
+      this._timeoutRegreso
+    );
 
-if (!turno) {
-  UI.toast(
-    'Selecciona un turno antes de registrar asistencia',
-    'alerta'
+    this._timeoutRegreso =
+      null;
+  }
+
+  const turno =
+    await this.obtenerTurnoActual();
+
+  if (!turno) {
+    UI.toast(
+      'Selecciona un turno antes de registrar asistencia',
+      'alerta'
+    );
+
+    document
+      .querySelector('.turnos-grid')
+      ?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+
+    return;
+  }
+
+  /*
+   * El bloqueo pertenece solamente a este DNI.
+   * Los demás trabajadores pueden continuar.
+   */
+  const claveBloqueo =
+    String(
+      trabajador.dni
+    ).trim();
+
+  const ahoraBloqueo =
+    Date.now();
+
+  const ultimo =
+    this._ultimosRegistros.get(
+      claveBloqueo
+    ) || null;
+
+  const registroEnProceso =
+    this._registrosEnCurso.has(
+      claveBloqueo
+    );
+
+  if (registroEnProceso) {
+    UI.toast(
+      `⏳ El registro de ${trabajador.nombres} está siendo procesado`,
+      'alerta'
+    );
+
+    return;
+  }
+
+  /*
+   * Compatibilidad con el formato anterior,
+   * que guardaba solamente la hora.
+   */
+  const ultimaMarca =
+    typeof ultimo === 'number'
+      ? ultimo
+      : Number(
+          ultimo?.marca || 0
+        );
+
+  /*
+   * Solo se considera el retraso cuando
+   * vuelve a marcar en el mismo turno.
+   */
+  const mismoTurno =
+    typeof ultimo === 'object' &&
+    String(ultimo?.turnoId) ===
+      String(turno.id);
+
+  const tiempoRestante =
+    this.TIEMPO_BLOQUEO_PERSONA_MS -
+    (
+      ahoraBloqueo -
+      ultimaMarca
+    );
+
+  /*
+   * Mismo DNI y mismo turno:
+   * aplica la protección de 15 segundos.
+   */
+  if (
+    mismoTurno &&
+    tiempoRestante > 0
+  ) {
+    const segundos =
+      Math.ceil(
+        tiempoRestante / 1000
+      );
+
+    UI.toast(
+      `✅ ${trabajador.nombres} ya marcó ${
+        ultimo.accion ||
+        'asistencia'
+      } en ${turno.nombre}. Espera ${segundos} segundos para repetir en el mismo turno.`,
+      'alerta'
+    );
+
+    return;
+  }
+
+  /*
+   * Si cambió de turno, no hay espera.
+   */
+  this._registrosEnCurso.add(
+    claveBloqueo
   );
+
+  this.metodoActual =
+    metodo;
 
   document
-    .querySelector('.turnos-grid')
-    ?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'center'
-    });
+    .getElementById(
+      'panel-busqueda'
+    )
+    ?.classList.add(
+      'oculto'
+    );
 
-  return;
-}
+  document
+    .getElementById(
+      'panel-scanner'
+    )
+    ?.classList.add(
+      'oculto'
+    );
 
-/*
- * La protección utiliza únicamente el DNI.
- * Por eso solamente se bloquea temporalmente a la misma persona.
- * Los demás trabajadores pueden continuar registrándose.
- */
-const claveBloqueo = String(trabajador.dni).trim();
+  document
+    .getElementById(
+      'panel-no-encontrado'
+    )
+    ?.classList.add(
+      'oculto'
+    );
 
-const ahoraBloqueo = Date.now();
+  if (
+    typeof Workers !==
+    'undefined'
+  ) {
+    Workers.cerrarModalNuevo();
+  }
 
-const ultimaMarca =
-  this._ultimosRegistros.get(claveBloqueo) || 0;
+  document
+    .getElementById(
+      'panel-ficha'
+    )
+    ?.classList.add(
+      'oculto'
+    );
 
-const registroEnProceso =
-  this._registrosEnCurso.has(claveBloqueo);
+  document.getElementById(
+    'ficha-avatar'
+  ).textContent =
+    UI.iniciales(
+      trabajador.nombres,
+      trabajador.apellidos
+    );
 
-const tiempoTranscurrido =
-  ahoraBloqueo - ultimaMarca;
+  document.getElementById(
+    'ficha-nombre'
+  ).textContent =
+    `${trabajador.nombres} ${trabajador.apellidos}`;
 
-const tiempoRestante =
-  this.TIEMPO_BLOQUEO_PERSONA_MS -
-  tiempoTranscurrido;
+  document.getElementById(
+    'ficha-dni'
+  ).textContent =
+    `DNI: ${trabajador.dni}`;
 
-/*
- * Evita que un segundo escaneo accidental convierta
- * inmediatamente una entrada en salida.
- */
-if (registroEnProceso) {
-  UI.toast(
-    `⏳ El registro de ${trabajador.nombres} está siendo procesado`,
-    'alerta'
-  );
+  document.getElementById(
+    'ficha-estado'
+  ).textContent =
+    trabajador.estado;
 
-  return;
-}
+  document.getElementById(
+    'ficha-estado'
+  ).className =
+    `badge badge-${
+      trabajador.estado ===
+      'ACTIVO'
+        ? 'verde'
+        : 'rojo'
+    }`;
 
-if (tiempoRestante > 0) {
-  const segundosRestantes = Math.ceil(
-    tiempoRestante / 1000
-  );
+  const metodoEl =
+    document.getElementById(
+      'ficha-metodo'
+    );
 
-  UI.toast(
-    `✅ ${trabajador.nombres} ya fue registrado. Espera ${segundosRestantes} segundos para volver a marcar.`,
-    'alerta'
-  );
+  metodoEl.textContent =
+    metodo === 'QR'
+      ? '📷 QR'
+      : '🔎 DNI';
 
-  return;
-}
+  metodoEl.className =
+    `badge badge-${
+      metodo === 'QR'
+        ? 'azul'
+        : 'naranja'
+    }`;
 
-/*
- * Solamente este DNI queda bloqueado mientras se procesa.
- */
-this._registrosEnCurso.add(claveBloqueo);
+  document.getElementById(
+    'ficha-nacimiento'
+  ).textContent =
+    UI.formatearFecha(
+      trabajador.fechaNacimiento
+    );
 
-    this.metodoActual = metodo;
+  document.getElementById(
+    'ficha-edad'
+  ).textContent =
+    `${UI.calcularEdad(
+      trabajador.fechaNacimiento
+    )} años`;
 
-    document.getElementById('panel-busqueda').classList.add('oculto');
-    document.getElementById('panel-scanner').classList.add('oculto');
-    document.getElementById('panel-no-encontrado').classList.add('oculto');
-    if (typeof Workers !== 'undefined') Workers.cerrarModalNuevo();
+  document.getElementById(
+    'ficha-cargo'
+  ).textContent =
+    trabajador.cargo;
 
-    const panel = document.getElementById('panel-ficha');
-    // La ficha completa no se muestra durante el marcado para evitar confusión.
-    // Sus elementos permanecen ocultos porque el flujo automático reutiliza
-    // algunos de ellos para calcular y comunicar el resultado.
-    panel.classList.add('oculto');
+  document.getElementById(
+    'ficha-area'
+  ).textContent =
+    trabajador.area;
 
-    document.getElementById('ficha-avatar').textContent = UI.iniciales(trabajador.nombres, trabajador.apellidos);
-    document.getElementById('ficha-nombre').textContent = `${trabajador.nombres} ${trabajador.apellidos}`;
-    document.getElementById('ficha-dni').textContent = `DNI: ${trabajador.dni}`;
-    document.getElementById('ficha-estado').textContent = trabajador.estado;
-    document.getElementById('ficha-estado').className = `badge badge-${trabajador.estado === 'ACTIVO' ? 'verde' : 'rojo'}`;
+  document.getElementById(
+    'ficha-ingreso'
+  ).textContent =
+    UI.formatearFecha(
+      trabajador.fechaIngreso
+    );
 
-    const metodoEl = document.getElementById('ficha-metodo');
-    metodoEl.textContent = metodo === 'QR' ? '📷 QR' : '🔎 DNI';
-    metodoEl.className = `badge badge-${metodo === 'QR' ? 'azul' : 'naranja'}`;
+  document.getElementById(
+    'ficha-telefono'
+  ).textContent =
+    trabajador.telefono ||
+    '—';
 
-    document.getElementById('ficha-nacimiento').textContent = UI.formatearFecha(trabajador.fechaNacimiento);
-    document.getElementById('ficha-edad').textContent = `${UI.calcularEdad(trabajador.fechaNacimiento)} años`;
-    document.getElementById('ficha-cargo').textContent = trabajador.cargo;
-    document.getElementById('ficha-area').textContent = trabajador.area;
-    document.getElementById('ficha-ingreso').textContent = UI.formatearFecha(trabajador.fechaIngreso);
-    document.getElementById('ficha-telefono').textContent = trabajador.telefono || '—';
-    document.getElementById('ficha-qrid').textContent = trabajador.qrId || '—';
+  document.getElementById(
+    'ficha-qrid'
+  ).textContent =
+    trabajador.qrId ||
+    '—';
 
-    document.getElementById('ficha-turno').textContent = turno ? `${turno.nombre} (${turno.inicio} - ${turno.fin})` : 'Sin turno seleccionado';
+  document.getElementById(
+    'ficha-turno'
+  ).textContent =
+    `${turno.nombre} (${turno.inicio} - ${turno.fin})`;
 
-    this.trabajadorInactivoActual = trabajador.estado !== 'ACTIVO';
-    try {
-      this.registroHoy = await DB.obtenerAsistenciaDeHoy(
+  this.trabajadorInactivoActual =
+    trabajador.estado !==
+    'ACTIVO';
+
+  let resultado =
+    null;
+
+  try {
+    this.registroHoy =
+      await DB.obtenerAsistenciaDeHoy(
         trabajador.dni,
         turno.id
       );
 
+    resultado =
       await this.procesarRegistroAutomatico(
         trabajador,
         turno
       );
-    } catch (error) {
-      console.error(
-        'Error procesando el registro de asistencia:',
-        error
+
+    /*
+     * El bloqueo se guarda solamente si
+     * se realizó una entrada o una salida.
+     *
+     * Los intentos fallidos no bloquean.
+     */
+    if (resultado?.accion) {
+      this._ultimosRegistros.set(
+        claveBloqueo,
+        {
+          marca: Date.now(),
+          turnoId: turno.id,
+          accion:
+            resultado.accion
+        }
       );
+    }
+  } catch (error) {
+    console.error(
+      'Error procesando el registro de asistencia:',
+      error
+    );
 
-      UI.toast(
-        error?.message ||
-          'No se pudo completar el registro. Inténtalo nuevamente.',
-        'error'
-      );
-    } finally {
-  /*
-   * Libera el procesamiento, pero conserva durante
-   * 15 segundos la hora de la última marcación.
-   */
-  this._registrosEnCurso.delete(claveBloqueo);
+    UI.toast(
+      error?.message ||
+      'No se pudo completar el registro. Inténtalo nuevamente.',
+      'error'
+    );
+  } finally {
+    this._registrosEnCurso.delete(
+      claveBloqueo
+    );
 
-  this._ultimosRegistros.set(
-    claveBloqueo,
-    Date.now()
-  );
+    UI.cerrarTodosLosModales();
 
-  UI.cerrarTodosLosModales();
-
-  if (typeof Workers !== 'undefined') {
-    try {
-      Workers.volverABuscar();
-    } catch (errorRestaurando) {
-      console.error(
-        'Error restaurando la pantalla de asistencia:',
+    if (
+      typeof Workers !==
+      'undefined'
+    ) {
+      try {
+        Workers.volverABuscar();
+      } catch (
         errorRestaurando
-      );
+      ) {
+        console.error(
+          'Error restaurando la pantalla de asistencia:',
+          errorRestaurando
+        );
 
-      document
-        .getElementById('panel-busqueda')
-        ?.classList.remove('oculto');
+        document
+          .getElementById(
+            'panel-busqueda'
+          )
+          ?.classList.remove(
+            'oculto'
+          );
 
-      document
-        .getElementById('panel-scanner')
-        ?.classList.add('oculto');
+        document
+          .getElementById(
+            'panel-scanner'
+          )
+          ?.classList.add(
+            'oculto'
+          );
 
-      document
-        .getElementById('panel-ficha')
-        ?.classList.add('oculto');
+        document
+          .getElementById(
+            'panel-ficha'
+          )
+          ?.classList.add(
+            'oculto'
+          );
 
-      document
-        .getElementById('panel-no-encontrado')
-        ?.classList.add('oculto');
+        document
+          .getElementById(
+            'panel-no-encontrado'
+          )
+          ?.classList.add(
+            'oculto'
+          );
+      }
     }
   }
-}
-
 },
 
-  async procesarRegistroAutomatico(trabajador, turno) {
-    const bloqueAuto = document.getElementById('bloque-registro-auto');
-    const bloqueCompletado = document.getElementById('bloque-jornada-completada');
-    const bloqueInactivo = document.getElementById('bloque-trabajador-inactivo');
+ async procesarRegistroAutomatico(
+  trabajador,
+  turno
+) {
+  const bloqueAuto =
+    document.getElementById(
+      'bloque-registro-auto'
+    );
 
-    bloqueAuto.classList.add('oculto');
-    bloqueCompletado.classList.add('oculto');
-    bloqueInactivo.classList.add('oculto');
-    bloqueInactivo.innerHTML = '❌ TRABAJADOR INACTIVO<br><span style="font-weight:600;font-size:11.5px;">No puede registrar asistencia</span>';
-    bloqueAuto.classList.remove('tipo-salida', 'tipo-alerta');
+  const bloqueCompletado =
+    document.getElementById(
+      'bloque-jornada-completada'
+    );
 
-    if (typeof Auth !== 'undefined' && !Auth.puedeEditar()) {
-      UI.toast('Tu cuenta tiene permiso de solo lectura', 'alerta');
-      return;
-    }
+  const bloqueInactivo =
+    document.getElementById(
+      'bloque-trabajador-inactivo'
+    );
 
-    // Trabajador inactivo: no se registra nada
-    if (this.trabajadorInactivoActual) {
-      bloqueInactivo.classList.remove('oculto');
-      UI.toast('❌ TRABAJADOR INACTIVO', 'error');
-      return;
-    }
+  bloqueAuto.classList.add(
+    'oculto'
+  );
 
-    if (!turno) {
-      UI.toast('Selecciona un turno primero', 'alerta');
-      return;
-    }
+  bloqueCompletado.classList.add(
+    'oculto'
+  );
 
-        // Busca entradas abiertas del trabajador en cualquier turno.
-    const registrosAbiertos = (
-      await DB.obtenerAsistencias()
-    ).filter(
+  bloqueInactivo.classList.add(
+    'oculto'
+  );
+
+  bloqueInactivo.innerHTML = `
+    ❌ TRABAJADOR INACTIVO
+    <br>
+    <span style="font-weight:600;font-size:11.5px;">
+      No puede registrar asistencia
+    </span>
+  `;
+
+  bloqueAuto.classList.remove(
+    'tipo-salida',
+    'tipo-alerta'
+  );
+
+  if (
+    typeof Auth !== 'undefined' &&
+    !Auth.puedeEditar()
+  ) {
+    UI.toast(
+      'Tu cuenta tiene permiso de solo lectura',
+      'alerta'
+    );
+
+    return null;
+  }
+
+  if (
+    this.trabajadorInactivoActual
+  ) {
+    bloqueInactivo.classList.remove(
+      'oculto'
+    );
+
+    UI.toast(
+      '❌ TRABAJADOR INACTIVO',
+      'error'
+    );
+
+    return null;
+  }
+
+  if (!turno) {
+    UI.toast(
+      'Selecciona un turno primero',
+      'alerta'
+    );
+
+    return null;
+  }
+
+  const turnosConfigurados =
+    await DB.obtenerTurnos();
+
+  const registrosIniciales =
+    await DB.obtenerAsistencias();
+
+  const registrosAbiertos =
+    registrosIniciales.filter(
       registro =>
         !registro.esDemo &&
-        registro.dni === trabajador.dni &&
+        String(registro.dni) ===
+          String(trabajador.dni) &&
         !registro.finalizado &&
         !registro.horaSalida
     );
 
-    const turnosConfigurados =
-      await DB.obtenerTurnos();
+  const cierresAutomaticos =
+    [];
 
-    const cierresAutomaticos = [];
-
-    // Revisa todas las entradas que continúen abiertas.
-    for (
-      const registroAbiertoAnterior
-      of registrosAbiertos
-    ) {
-      const turnoAnterior =
-        turnosConfigurados.find(
-          item =>
-            item.id ===
+  /*
+   * Revisa entradas antiguas y solamente
+   * las cierra si venció su plazo adicional.
+   */
+  for (
+    const registroAbiertoAnterior
+    of registrosAbiertos
+  ) {
+    const turnoAnterior =
+      turnosConfigurados.find(
+        elemento =>
+          String(elemento.id) ===
+          String(
             registroAbiertoAnterior.turnoId
+          )
+      );
+
+    const fechaLimiteSalida =
+      _fechaHoraLimiteSalida(
+        registroAbiertoAnterior,
+        turnoAnterior
+      );
+
+    const plazoSalidaVencido =
+      fechaLimiteSalida &&
+      Date.now() >
+        fechaLimiteSalida.getTime();
+
+    if (plazoSalidaVencido) {
+      const cerrado =
+        await DB.registrarSalidaAutomatica(
+          registroAbiertoAnterior.id
         );
 
-     /*
- * Calcula cuándo terminan las seis horas adicionales
- * para la jornada abierta.
- */
-const fechaLimiteSalida =
-  _fechaHoraLimiteSalida(
-    registroAbiertoAnterior,
-    turnoAnterior
-  );
+      cierresAutomaticos.push(
+        cerrado
+      );
+    }
+  }
 
-/*
- * Comprueba si ya venció el plazo.
- */
-const plazoSalidaVencido =
-  fechaLimiteSalida &&
-  new Date().getTime() >
-    fechaLimiteSalida.getTime();
+  if (
+    cierresAutomaticos.length
+  ) {
+    const turnosCerrados =
+      cierresAutomaticos
+        .map(registro =>
+          registro.turnoNombre ||
+          registro.turnoId ||
+          'Turno'
+        )
+        .join(', ');
 
-/*
- * Solo cierra automáticamente la jornada después
- * de vencer las seis horas adicionales.
- */
-if (plazoSalidaVencido) {
-  const cerrado =
-    await DB.registrarSalidaAutomatica(
-      registroAbiertoAnterior.id
+    UI.toast(
+      `⚠️ Se cerró automáticamente ${turnosCerrados} porque venció su plazo de salida.`,
+      'alerta'
     );
 
-  cierresAutomaticos.push(cerrado);
-}
+    if (
+      typeof Dashboard !==
+      'undefined'
+    ) {
+      Dashboard.actualizarSiVisible();
     }
+  }
 
-    // Informa al supervisor qué registros fueron cerrados.
-    if (cierresAutomaticos.length) {
-      const turnosCerrados =
-        cierresAutomaticos
-          .map(
-            registro =>
-              registro.turnoNombre ||
-              registro.turnoId ||
-              'Turno'
-          )
-          .join(', ');
+  const fechaJornada =
+    _fechaOperativaTurno(
+      turno
+    );
 
+  /*
+   * Vuelve a consultar porque pudo haber
+   * ocurrido un cierre automático.
+   */
+  const registrosActuales =
+    await DB.obtenerAsistencias();
+
+  const registrosPersona =
+    registrosActuales.filter(
+      registro =>
+        !registro.esDemo &&
+        String(registro.dni) ===
+          String(trabajador.dni)
+    );
+
+  const jornadaAbierta =
+    registrosPersona.find(
+      registro =>
+        !registro.finalizado &&
+        !registro.horaSalida
+    );
+
+  /*
+   * Si existe una jornada abierta, primero
+   * debe registrar su salida.
+   */
+  if (jornadaAbierta) {
+    /*
+     * La salida debe realizarse seleccionando
+     * el turno donde tiene su entrada.
+     */
+    if (
+      String(
+        jornadaAbierta.turnoId
+      ) !==
+      String(turno.id)
+    ) {
       UI.toast(
-        `⚠️ Se cerró automáticamente ${turnosCerrados} porque no tenía salida. La marcación actual continuará como una nueva entrada.`,
+        `⚠️ Tiene una entrada abierta en ${
+          jornadaAbierta.turnoNombre ||
+          jornadaAbierta.turnoId
+        }. Selecciona ese turno para registrar su salida.`,
         'alerta'
       );
 
-      if (typeof Dashboard !== 'undefined') {
-        Dashboard.actualizarSiVisible();
-      }
+      return null;
     }
 
-    const fechaJornada = _fechaOperativaTurno(turno);
-    if (await DB.obtenerCierre(fechaJornada, turno.id)) {
-      UI.toast('Este turno ya fue finalizado y no admite nuevos registros', 'alerta');
-      return;
+    const registro =
+      await DB.registrarSalida(
+        jornadaAbierta.id,
+        this.metodoActual
+      );
+
+    this.ocultarListaTrasCierre =
+      false;
+
+    this.registroAbierto =
+      null;
+
+    this.registroHoy =
+      registro;
+
+    bloqueAuto.classList.remove(
+      'oculto'
+    );
+
+    bloqueAuto.classList.add(
+      'tipo-salida'
+    );
+
+    document.getElementById(
+      'icono-registro-auto'
+    ).textContent =
+      '👋';
+
+    document.getElementById(
+      'titulo-registro-auto'
+    ).textContent =
+      `SALIDA ${
+        registro.numeroJornada || 1
+      } REGISTRADA`;
+
+    document.getElementById(
+      'hora-registro-auto'
+    ).textContent =
+      String(
+        registro.horaSalida
+      ).slice(0, 8);
+
+    UI.toast(
+      `✅ Salida ${
+        registro.numeroJornada || 1
+      } registrada en ${turno.nombre}`,
+      'exito'
+    );
+
+    if (
+      typeof Dashboard !==
+      'undefined'
+    ) {
+      Dashboard.actualizarSiVisible();
     }
 
-    // Jornada ya completa hoy: no se registra nada más
-    const jornadasHoy = await DB.obtenerAsistenciasDeHoy(
-  trabajador.dni,
-  turno.id
-);
+    await this.renderizarRegistrosHoy();
 
-const jornadaAbierta = jornadasHoy.find(
-  registro => !registro.horaSalida
-);
+    return {
+      accion: 'SALIDA',
+      registro
+    };
+  }
 
-const jornadasCompletas = jornadasHoy.filter(
-  registro => Boolean(registro.horaSalida)
-);
+  /*
+   * Un cierre impide nuevas entradas,
+   * pero no impide una salida pendiente.
+   */
+  if (
+    await DB.obtenerCierre(
+      fechaJornada,
+      turno.id
+    )
+  ) {
+    UI.toast(
+      'Este turno ya fue finalizado y no admite nuevas entradas',
+      'alerta'
+    );
 
-this.registroHoy =
-  jornadaAbierta ||
-  jornadasCompletas[0] ||
-  null;
+    return null;
+  }
 
-// Si existe una entrada abierta, esta marcación será su salida.
-if (jornadaAbierta) {
-  const registro = await DB.registrarSalida(
-    jornadaAbierta.id,
-    this.metodoActual
+  /*
+   * Obtiene todas las jornadas del trabajador
+   * en la misma fecha operativa.
+   */
+  const jornadasFecha =
+    registrosPersona.filter(
+      registro =>
+        String(registro.fecha) ===
+        String(fechaJornada)
+    );
+
+  /*
+   * Impide una tercera jornada.
+   */
+  if (
+    jornadasFecha.length >= 2
+  ) {
+    const ultimoRegistro =
+      [...jornadasFecha]
+        .sort((a, b) =>
+          String(
+            b.horaEntrada || ''
+          ).localeCompare(
+            String(
+              a.horaEntrada || ''
+            )
+          )
+        )[0];
+
+    bloqueCompletado.classList.remove(
+      'oculto'
+    );
+
+    document.getElementById(
+      'completado-entrada'
+    ).textContent =
+      String(
+        ultimoRegistro.horaEntrada ||
+        '--:--'
+      ).slice(0, 5);
+
+    document.getElementById(
+      'completado-salida'
+    ).textContent =
+      String(
+        ultimoRegistro.horaSalida ||
+        '--:--'
+      ).slice(0, 5);
+
+    document.getElementById(
+      'completado-horas'
+    ).textContent =
+      ultimoRegistro.horasTrabajadas ||
+      '—';
+
+    UI.toast(
+      '⚠️ El trabajador ya alcanzó el máximo de dos jornadas',
+      'alerta'
+    );
+
+    return null;
+  }
+
+  /*
+   * Impide repetir el mismo turno.
+   */
+  const turnoRepetido =
+    jornadasFecha.find(
+      registro =>
+        String(registro.turnoId) ===
+        String(turno.id)
+    );
+
+  if (turnoRepetido) {
+    UI.toast(
+      `⚠️ El trabajador ya tiene registro en ${turno.nombre}. Para doble turno selecciona otro turno.`,
+      'alerta'
+    );
+
+    return null;
+  }
+
+  /*
+   * Antes de abrir la segunda jornada,
+   * solicita confirmación al supervisor.
+   */
+  if (
+    jornadasFecha.length === 1
+  ) {
+    const turnoPrevio =
+      jornadasFecha[0].turnoNombre ||
+      jornadasFecha[0].turnoId;
+
+    const continuar =
+      confirm(
+        `⚠️ DOBLE TURNO\n\n` +
+        `${trabajador.nombres} ${trabajador.apellidos} ya completó ${turnoPrevio}.\n\n` +
+        `Se registrará la Jornada 2 en ${turno.nombre}.\n\n` +
+        `¿Deseas continuar?`
+      );
+
+    if (!continuar) {
+      UI.toast(
+        'Registro de segundo turno cancelado',
+        'alerta'
+      );
+
+      return null;
+    }
+  }
+
+  const registro =
+    await DB.registrarEntrada({
+      dni:
+        trabajador.dni,
+
+      nombreCompleto:
+        `${trabajador.nombres} ${trabajador.apellidos}`,
+
+      turnoId:
+        turno.id,
+
+      turnoNombre:
+        turno.nombre,
+
+      metodo:
+        this.metodoActual
+    });
+
+  this.registroAbierto =
+    registro;
+
+  this.ocultarListaTrasCierre =
+    false;
+
+  this.registroHoy =
+    registro;
+
+  bloqueAuto.classList.remove(
+    'oculto'
   );
 
-  this.ocultarListaTrasCierre = false;
-  this.registroAbierto = null;
-  this.registroHoy = registro;
-
-  bloqueAuto.classList.remove('oculto');
-  bloqueAuto.classList.add('tipo-salida');
+  if (
+    registro.estadoEntrada ===
+    'TARDANZA'
+  ) {
+    bloqueAuto.classList.add(
+      'tipo-alerta'
+    );
+  }
 
   document.getElementById(
     'icono-registro-auto'
-  ).textContent = '👋';
+  ).textContent =
+    registro.estadoEntrada ===
+    'TARDANZA'
+      ? '⏰'
+      : '✅';
 
   document.getElementById(
     'titulo-registro-auto'
   ).textContent =
-    registro.numeroJornada === 1
-      ? 'SALIDA 1 REGISTRADA'
-      : 'SALIDA 2 REGISTRADA';
+    registro.numeroJornada === 2
+      ? 'ENTRADA 2 REGISTRADA'
+      : registro.estadoEntrada ===
+          'TARDANZA'
+        ? 'ENTRADA 1 CON TARDANZA'
+        : 'ENTRADA 1 REGISTRADA';
 
   document.getElementById(
     'hora-registro-auto'
-  ).textContent = registro.horaSalida.slice(0, 8);
+  ).textContent =
+    String(
+      registro.horaEntrada
+    ).slice(0, 8);
 
   UI.toast(
-    `✅ Salida ${registro.numeroJornada || 1} registrada`,
-    'exito'
+    `${
+      registro.estadoEntrada ===
+      'TARDANZA'
+        ? '⚠️'
+        : '✅'
+    } ${registro.estadoEntrada} — Entrada ${
+      registro.numeroJornada || 1
+    }: ${
+      String(
+        registro.horaEntrada
+      ).slice(0, 5)
+    }`,
+    registro.estadoEntrada ===
+      'TARDANZA'
+      ? 'alerta'
+      : 'exito'
   );
 
-  if (typeof Dashboard !== 'undefined') {
+  if (
+    typeof Dashboard !==
+    'undefined'
+  ) {
     Dashboard.actualizarSiVisible();
   }
 
   await this.renderizarRegistrosHoy();
-  return;
-}
 
-// Impide una quinta marcación.
-if (jornadasCompletas.length >= 2) {
-  const ultimoRegistro = jornadasCompletas[0];
-
-  bloqueCompletado.classList.remove('oculto');
-
-  document.getElementById(
-    'completado-entrada'
-  ).textContent =
-    ultimoRegistro.horaEntrada.slice(0, 5);
-
-  document.getElementById(
-    'completado-salida'
-  ).textContent =
-    ultimoRegistro.horaSalida.slice(0, 5);
-
-  document.getElementById(
-    'completado-horas'
-  ).textContent =
-    ultimoRegistro.horasTrabajadas || '—';
-
-  UI.toast(
-    '⚠️ El trabajador ya completó sus dos jornadas',
-    'alerta'
-  );
-
-  return;
-}
-    // Sin registro hoy → registrar entrada automáticamente
-    const registrosMismaJornada = (await DB.obtenerAsistencias()).filter(r =>
-      !r.esDemo &&
-      r.dni === trabajador.dni &&
-      r.fecha === fechaJornada &&
-      r.turnoId !== turno.id
-    );
-    const turnosPrevios = [...new Map(registrosMismaJornada.map(r => [r.turnoId, r.turnoNombre || r.turnoId])).values()];
-    const cantidadTurnos = turnosPrevios.length + 1;
-
-    if (cantidadTurnos >= 2) {
-      const totalTexto = cantidadTurnos === 2 ? '2 TURNOS' : '3 TURNOS';
-      const continuar = confirm(
-        `⚠️ ALERTA DE TURNOS ACUMULADOS\n\n` +
-        `${trabajador.nombres} ${trabajador.apellidos} ya tiene registro en: ${turnosPrevios.join(', ')}.\n\n` +
-        `Al registrarlo en ${turno.nombre}, estará realizando ${totalTexto} en la jornada del ${UI.formatearFecha(fechaJornada)}.\n\n` +
-        `¿Deseas continuar con el registro?`
-      );
-      if (!continuar) {
-        UI.toast('Registro cancelado por alerta de turnos acumulados', 'alerta');
-        return;
-      }
-    }
-
-    let registro;
-    try {
-      registro = await DB.registrarEntrada({
-      dni: trabajador.dni,
-      nombreCompleto: `${trabajador.nombres} ${trabajador.apellidos}`,
-      turnoId: turno.id,
-      turnoNombre: turno.nombre,
-        metodo: this.metodoActual
-      });
-    } catch (error) {
-      UI.toast(error.message || 'No se pudo registrar la entrada', 'error');
-      return;
-    }
-
-    this.registroAbierto = registro;
-    this.ocultarListaTrasCierre = false;
-    this.registroHoy = registro;
-
-    bloqueAuto.classList.remove('oculto');
-    if (registro.estadoEntrada === 'TARDANZA') bloqueAuto.classList.add('tipo-alerta');
-    document.getElementById('icono-registro-auto').textContent = registro.estadoEntrada === 'TARDANZA' ? '⏰' : '✅';
-    document.getElementById(
-  'titulo-registro-auto'
-).textContent =
-  registro.numeroJornada === 2
-    ? 'ENTRADA 2 REGISTRADA'
-    : registro.estadoEntrada === 'TARDANZA'
-      ? 'ENTRADA 1 CON TARDANZA'
-      : 'ENTRADA 1 REGISTRADA';
-    document.getElementById('hora-registro-auto').textContent = registro.horaEntrada.slice(0, 8);
-
-    UI.toast(`${registro.estadoEntrada === 'TARDANZA' ? '⚠️' : '✅'} ${registro.estadoEntrada} — Entrada: ${registro.horaEntrada.slice(0, 5)}`, registro.estadoEntrada === 'TARDANZA' ? 'alerta' : 'exito');
-    if (typeof Dashboard !== 'undefined') Dashboard.actualizarSiVisible();
-    await this.renderizarRegistrosHoy();
-  },
+  return {
+    accion: 'ENTRADA',
+    registro
+  };
+},
 
   programarRegresoAutomatico() {
     if (this._timeoutRegreso) clearTimeout(this._timeoutRegreso);

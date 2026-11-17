@@ -2,6 +2,200 @@ const Auth = {
   CLAVE_USUARIOS: 'asistencia_usuarios_v2',
   usuarioActual: null,
 
+    mostrarErrorArranque(error) {
+    const mensaje = String(
+      error?.message ||
+      'No se pudo iniciar el sistema. Revisa la conexión.'
+    );
+
+    document.body.classList.remove(
+      'auth-bloqueado'
+    );
+
+    let pantalla = document.getElementById(
+      'error-arranque-app'
+    );
+
+    if (!pantalla) {
+      pantalla = document.createElement(
+        'section'
+      );
+
+      pantalla.id = 'error-arranque-app';
+
+      pantalla.setAttribute(
+        'role',
+        'alertdialog'
+      );
+
+      pantalla.setAttribute(
+        'aria-modal',
+        'true'
+      );
+            pantalla.innerHTML = `
+        <div class="error-arranque-contenido">
+          <div
+            class="error-arranque-icono"
+            aria-hidden="true"
+          >
+            ⚠
+          </div>
+
+          <h1>
+            No se pudo cargar el sistema
+          </h1>
+
+          <p id="error-arranque-mensaje"></p>
+
+          <div class="error-arranque-acciones">
+            <button
+              type="button"
+              id="btn-reintentar-arranque"
+            >
+              Reintentar
+            </button>
+
+            <button
+              type="button"
+              id="btn-salir-arranque"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+        </div>
+      `;
+
+      const estilo =
+        document.createElement('style');
+
+      estilo.id =
+        'estilo-error-arranque-app';
+            estilo.textContent = `
+        #error-arranque-app {
+          position: fixed;
+          inset: 0;
+          z-index: 99999;
+          display: grid;
+          place-items: center;
+          padding: 24px;
+          background: #f4f7fb;
+          color: #172033;
+          font-family: inherit;
+        }
+
+        .error-arranque-contenido {
+          width: min(460px, 100%);
+          padding: 30px;
+          border-radius: 20px;
+          background: #ffffff;
+          box-shadow:
+            0 18px 55px rgba(19, 34, 66, 0.18);
+          text-align: center;
+        }
+
+        .error-arranque-icono {
+          display: grid;
+          place-items: center;
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 14px;
+          border-radius: 50%;
+          background: #fff3cd;
+          color: #8a6100;
+          font-size: 30px;
+        }
+                .error-arranque-contenido h1 {
+          margin: 0 0 10px;
+          font-size: 24px;
+        }
+
+        .error-arranque-contenido p {
+          margin: 0 0 22px;
+          line-height: 1.5;
+          color: #526078;
+          overflow-wrap: anywhere;
+        }
+
+        .error-arranque-acciones {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .error-arranque-acciones button {
+          min-height: 44px;
+          padding: 10px 18px;
+          border: 0;
+          border-radius: 10px;
+          font-weight: 700;
+          cursor: pointer;
+          touch-action: manipulation;
+        }
+
+        #btn-reintentar-arranque {
+          background: #1463ff;
+          color: #ffffff;
+        }
+
+        #btn-salir-arranque {
+          background: #e9eef6;
+          color: #25324a;
+        }
+      `;
+
+      document.head.appendChild(estilo);
+      document.body.appendChild(pantalla);
+            document
+        .getElementById('btn-reintentar-arranque')
+        ?.addEventListener('click', () => {
+          window.location.reload();
+        });
+
+      document
+        .getElementById('btn-salir-arranque')
+        ?.addEventListener(
+          'click',
+          async () => {
+            const boton =
+              document.getElementById(
+                'btn-salir-arranque'
+              );
+
+            if (boton) {
+              boton.disabled = true;
+            }
+
+            try {
+              await Cloud.client?.auth?.signOut();
+            } catch (_) {}
+
+            sessionStorage.removeItem(
+              'control-asistencia-sesion'
+            );
+
+            window.location.replace(
+              'login.html'
+            );
+          }
+        );
+    }    
+      const texto = document.getElementById(
+      'error-arranque-mensaje'
+    );
+
+    if (texto) {
+      texto.textContent = mensaje;
+    }
+
+    pantalla.hidden = false;
+
+    console.error(
+      'Error al iniciar la aplicación:',
+      error
+    );
+  },
+
   permisosPredeterminados(administrador = false) {
     return { editar:administrador, administrar:administrador, tabs:administrador?['asistencia','historial','programacion','trabajadores','reportes','ajustes','perfil']:['asistencia','historial','reportes','perfil'] };
   },
@@ -188,7 +382,7 @@ localStorage.setItem(
     catch (error) {
       const errorLogin = document.getElementById('login-error');
       if (errorLogin) errorLogin.textContent = error.message;
-      else console.error(error);
+      else this.mostrarErrorArranque(error);
       return;
     }
     await this.cargarAlmacenesRegistro();
@@ -270,16 +464,53 @@ localStorage.setItem(
       }
     });
 
-    const { data: { session } } = await Cloud.client.auth.getSession();
-    if (session?.user) {
-      if (esDashboard) {
-        try { await this.iniciarAplicacion(session.user); }
-        catch (e) { if (e?.code === 'ALMACEN_PENDIENTE') await Cloud.client.auth.signOut(); throw e; }
-      } else {
-        window.location.href = 'dashboard.html';
+        try {
+      const {
+        data,
+        error: sesionError
+      } = await Cloud.client.auth.getSession();
+
+      if (sesionError) {
+        throw sesionError;
       }
-    } else if (esDashboard) {
-      window.location.href = 'login.html';
+
+      const session = data?.session;
+
+      if (session?.user) {
+        if (esDashboard) {
+          await this.iniciarAplicacion(
+            session.user
+          );
+        } else {
+          window.location.href =
+            'dashboard.html';
+        }
+      } else if (esDashboard) {
+        window.location.href =
+          'login.html';
+      } else {
+        document.body.classList.remove(
+          'auth-bloqueado'
+        );
+      }
+    } catch (error) {
+      if (error?.code === 'ALMACEN_PENDIENTE'
+      ) {
+        try { await Cloud.client.auth.signOut();
+        } catch (_) {}
+      }
+
+      if (esDashboard) { this.mostrarErrorArranque(error);
+      } else {
+        document.body.classList.remove( 'auth-bloqueado'
+        );
+
+        const errorLogin = document.getElementById( 'login-error'
+          );
+
+        if (errorLogin) { errorLogin.textContent = error?.message || 'No se pudo comprobar la sesión.';
+        }
+      }
     }
   },
 
